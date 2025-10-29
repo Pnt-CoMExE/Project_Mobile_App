@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-
-
-
+import 'package:project_mobile_app/lender/approve.dart';
+import 'package:project_mobile_app/lender/history.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -14,56 +13,89 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
 
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
+
+    setState(() {
+      _selectedIndex = index;
+    });
+
+    late Widget nextPage;
+    late String routeName;
+
+    if (index == 0) {
+      nextPage = const DashboardPage();
+      routeName = '/dashboard';
+    } else if (index == 1) {
+      nextPage = const ApproveListPage();
+      routeName = '/approve';
+    } else if (index == 2) {
+      nextPage = const HistoryPage();
+       routeName = '/history';
+    }
+      Navigator.pushReplacement(
+    context,
+    PageRouteBuilder(
+      settings: RouteSettings(name: routeName),
+      pageBuilder: (_, __, ___) => nextPage,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      transitionsBuilder: (_, __, ___, child) => child, 
+    ),
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-       //🔹 AppBar สีม่วงเข้ม
+      //🔹 AppBar สีม่วงเข้ม
       appBar: PreferredSize(
-  preferredSize: const Size.fromHeight(kToolbarHeight),
-  child: SafeArea( // ✅ ป้องกันล้นขอบบน
-    child: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF8E24AA),
-            Color(0xFF4A148C),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.topRight,
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SafeArea(
+          // ✅ ป้องกันล้นขอบบน
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
+                begin: Alignment.topLeft,
+                end: Alignment.topRight,
+              ),
+            ),
+          child: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: const Text(
+                "Dashboard",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              centerTitle: true,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: IconButton(
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    onPressed: () {
+                      Navigator.pushReplacementNamed(context, '/login');
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      child: AppBar(
-        title: const Text("Dashboard"),
-        backgroundColor: Colors.transparent, // ทำให้ AppBar โปร่งใสเพื่อเห็น gradient
-        elevation: 0,
-      actions: [
-  Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: IconButton(
-      icon: const Icon(Icons.logout, color: Colors.white),
-      onPressed: () {
-        // 🔹 เมื่อกด Logout -> กลับไปหน้า Login
-        Navigator.pushReplacementNamed(context, '/login');
-      },
-    ),
-  ),
-],
-      ),
-    ),
-  ),
-),
 
-      // 🔹 BottomNavigationBar 
+      // 🔹 BottomNavigationBar
       bottomNavigationBar: Container(
         height: 60, // ลดความสูง
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFF8E24AA),
-              Color(0xFF4A148C),
-            ],
+            colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
             begin: Alignment.topCenter,
-            end: Alignment.bottomCenter, 
+            end: Alignment.bottomCenter,
           ),
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(20),
@@ -83,11 +115,7 @@ class _DashboardPageState extends State<DashboardPage> {
             showSelectedLabels: false,
             showUnselectedLabels: false,
             currentIndex: _selectedIndex,
-            onTap: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
+            onTap: _onItemTapped,
             items: const [
               BottomNavigationBarItem(
                 icon: Center(child: Icon(Icons.wifi_tethering)),
@@ -122,7 +150,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     color: Colors.black12,
                     blurRadius: 5,
                     offset: Offset(2, 2),
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -136,17 +164,41 @@ class _DashboardPageState extends State<DashboardPage> {
                             centerSpaceRadius: 35,
                             sectionsSpace: 2,
                             sections: [
-                              PieChartSectionData(color: Colors.green, value: 17, title: ''),
-                              PieChartSectionData(color: Colors.red, value: 9, title: ''),
-                              PieChartSectionData(color: Colors.yellow, value: 10, title: ''),
-                              PieChartSectionData(color: Colors.blue, value: 7, title: ''),
+                              PieChartSectionData(
+                                color: Colors.green,
+                                value: 17,
+                                title: '',
+                              ),
+                              PieChartSectionData(
+                                color: Colors.red,
+                                value: 9,
+                                title: '',
+                              ),
+                              PieChartSectionData(
+                                color: Colors.yellow,
+                                value: 10,
+                                title: '',
+                              ),
+                              PieChartSectionData(
+                                color: Colors.blue,
+                                value: 7,
+                                title: '',
+                              ),
                             ],
                           ),
                         ),
                         Positioned(top: 10, left: 25, child: _numberBox("17")),
                         Positioned(top: 15, right: 40, child: _numberBox("9")),
-                        Positioned(bottom: 25, right: 40, child: _numberBox("10")),
-                        Positioned(bottom: 30, left: 25, child: _numberBox("7")),
+                        Positioned(
+                          bottom: 25,
+                          right: 40,
+                          child: _numberBox("10"),
+                        ),
+                        Positioned(
+                          bottom: 30,
+                          left: 25,
+                          child: _numberBox("7"),
+                        ),
                       ],
                     ),
                   ),
@@ -184,7 +236,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     color: Colors.black12,
                     blurRadius: 5,
                     offset: Offset(2, 2),
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -197,10 +249,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("All items :"),
-                      _numberBox("7"),
-                    ],
+                    children: [const Text("All items :"), _numberBox("7")],
                   ),
                   const SizedBox(height: 8),
                   Row(

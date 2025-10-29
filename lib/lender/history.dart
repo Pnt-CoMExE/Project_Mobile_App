@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:project_mobile_app/lender/approve.dart';
+import 'package:project_mobile_app/lender/dashboard.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({Key? key}) : super(key: key);
@@ -8,7 +10,9 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 2;
+
+  
 
   final List<Map<String, String>> historyList = const [
     {
@@ -31,38 +35,48 @@ class _HistoryPageState extends State<HistoryPage> {
     },
   ];
 
-  @override
+   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-
-      // 🔹 AppBar สีม่วง พร้อมปุ่ม Logout ด้านขวา
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        backgroundColor: const Color(0xFF8E24AA),
-        centerTitle: true,
-        title: const Text(
-          "SPORT EQUIPMENT\nBORROWING",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            height: 1.2,
-            fontSize: 18,
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: IconButton(
-              icon: const Icon(Icons.logout, color: Colors.white),
-              onPressed: () {
-                // ✅ เมื่อกด Logout -> กลับไปหน้า Login
-                Navigator.pushReplacementNamed(context, '/login');
-              },
+      //🔹 AppBar สีม่วงเข้ม
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SafeArea(
+          // ✅ ป้องกันล้นขอบบน
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
+                begin: Alignment.topLeft,
+                end: Alignment.topRight,
+              ),
+            ),
+          child: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: const Text(
+                "SPORT EQUIPMENT BORROWING",
+                  
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              centerTitle: true,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: IconButton(
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    onPressed: () {
+                      Navigator.pushReplacementNamed(context, '/login');
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
 
       body: ListView.builder(
@@ -154,14 +168,26 @@ class _HistoryPageState extends State<HistoryPage> {
                 _selectedIndex = index;
               });
 
+              late Widget nextPage;
+
               if (index == 0) {
-                Navigator.pushReplacementNamed(context, '/dashboard');
-              } else if (index == 1) {
-                Navigator.pushReplacementNamed(context, '/approve');
-              } else if (index == 2) {
-                Navigator.pushReplacementNamed(context, '/history');
-              }
-            },
+              nextPage = const DashboardPage();
+            } else if (index == 1) {
+              nextPage = const ApproveListPage();
+            } else if (index == 2) {
+              nextPage = const HistoryPage();
+            }
+
+            Navigator.pushReplacement(
+              context,
+              PageRouteBuilder(
+              pageBuilder: (_, __, ___) => nextPage,
+              transitionDuration: Duration.zero,
+              reverseTransitionDuration: Duration.zero,
+              transitionsBuilder: (_, __, ___, child) => child,
+            ),
+          );
+        },
             items: const [
               BottomNavigationBarItem(
                 icon: Center(child: Icon(Icons.wifi_tethering)),

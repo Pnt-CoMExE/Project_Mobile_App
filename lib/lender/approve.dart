@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:project_mobile_app/lender/dashboard.dart';
+import 'package:project_mobile_app/lender/history.dart';
 
 class ApproveListPage extends StatefulWidget {
   const ApproveListPage({Key? key}) : super(key: key);
@@ -47,20 +49,37 @@ class _ApproveListPageState extends State<ApproveListPage> {
       ),
     );
   }
+ void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
 
-  void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
 
+    late Widget nextPage;
+    late String routeName;
+
     if (index == 0) {
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      nextPage = const DashboardPage();
+      routeName = '/dashboard';
     } else if (index == 1) {
-      Navigator.pushReplacementNamed(context, '/approve');
+      nextPage = const ApproveListPage();
+      routeName = '/approve';
     } else if (index == 2) {
-      Navigator.pushReplacementNamed(context, '/history');
+      nextPage = const HistoryPage();
+       routeName = '/history';
     }
-  }
+      Navigator.pushReplacement(
+    context,
+    PageRouteBuilder(
+      settings: RouteSettings(name: routeName),
+      pageBuilder: (_, __, ___) => nextPage,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+      transitionsBuilder: (_, __, ___, child) => child, 
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
