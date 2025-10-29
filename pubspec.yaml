@@ -59,11 +59,22 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+  assets:
+    - assets/images/background.png
 
+  fonts:
+    - family: Cinzel
+      fonts:
+        - asset: assets/fonts/Cinzel-Bold.ttf
+        - asset: assets/fonts/Cinzel-Black.ttf
+        - asset: assets/fonts/Cinzel-ExtraBold.ttf
+        - asset: assets/fonts/Cinzel-Medium.ttf
+        - asset: assets/fonts/Cinzel-Regular.ttf
+        - asset: assets/fonts/Cinzel-SemiBold.ttf
+          weight: 700
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/background.png
-  #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -79,6 +90,7 @@ flutter:
   # fonts:
   #   - family: Schyler
   #     fonts:
+  
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic
