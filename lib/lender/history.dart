@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:project_mobile_app/lender/approve.dart';
-import 'package:project_mobile_app/lender/dashboard.dart';
+import 'package:project_mobile_app/lender/ldashboard.dart';
 
-class HistoryPage extends StatefulWidget {
-  const HistoryPage({Key? key}) : super(key: key);
+class History extends StatefulWidget {
+  const History({Key? key}) : super(key: key);
 
   @override
-  State<HistoryPage> createState() => _HistoryPageState();
+  State<History> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends State<HistoryPage> {
+class _HistoryPageState extends State<History> {
   int _selectedIndex = 2;
-
-  
 
   final List<Map<String, String>> historyList = const [
     {
@@ -35,7 +33,7 @@ class _HistoryPageState extends State<HistoryPage> {
     },
   ];
 
-   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       //🔹 AppBar สีม่วงเข้ม
@@ -51,12 +49,12 @@ class _HistoryPageState extends State<HistoryPage> {
                 end: Alignment.topRight,
               ),
             ),
-          child: AppBar(
+            child: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
               title: const Text(
                 "SPORT EQUIPMENT BORROWING",
-                  
+
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -138,10 +136,7 @@ class _HistoryPageState extends State<HistoryPage> {
         height: 60,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFF8E24AA),
-              Color(0xFF4A148C),
-            ],
+            colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -171,23 +166,23 @@ class _HistoryPageState extends State<HistoryPage> {
               late Widget nextPage;
 
               if (index == 0) {
-              nextPage = const DashboardPage();
-            } else if (index == 1) {
-              nextPage = const ApproveListPage();
-            } else if (index == 2) {
-              nextPage = const HistoryPage();
-            }
+                nextPage = const Ldashboard();
+              } else if (index == 1) {
+                nextPage = const Approve();
+              } else if (index == 2) {
+                nextPage = const History();
+              }
 
-            Navigator.pushReplacement(
-              context,
-              PageRouteBuilder(
-              pageBuilder: (_, __, ___) => nextPage,
-              transitionDuration: Duration.zero,
-              reverseTransitionDuration: Duration.zero,
-              transitionsBuilder: (_, __, ___, child) => child,
-            ),
-          );
-        },
+              Navigator.pushReplacement(
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) => nextPage,
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                  transitionsBuilder: (_, __, ___, child) => child,
+                ),
+              );
+            },
             items: const [
               BottomNavigationBarItem(
                 icon: Center(child: Icon(Icons.wifi_tethering)),

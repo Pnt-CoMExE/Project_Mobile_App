@@ -15,9 +15,15 @@ class _LoginPageState extends State<LoginPage> {
   String? _error;
 
   void _doLogin() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      User user = await AuthService.login(_username.text.trim(), _password.text.trim());
+      User user = await AuthService.login(
+        _username.text.trim(),
+        _password.text.trim(),
+      );
       // navigate based on role
       if (user.role == 'student') {
         Navigator.pushReplacementNamed(context, '/student/home');
@@ -29,16 +35,19 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacementNamed(context, '/student/home');
       }
     } catch (e) {
-      setState(() { _error = e.toString(); });
+      setState(() {
+        _error = e.toString();
+      });
     } finally {
-      setState(() { _loading = false; });
+      setState(() {
+        _loading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-(
       body: Container(
         width: double.infinity,
         height: double.infinity,

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:project_mobile_app/student/welcome.dart';
 import 'package:project_mobile_app/student/login.dart';
 import 'package:project_mobile_app/student/register.dart';
-import 'package:project_mobile_app/staff/dashboard.dart';
-import 'package:project_mobile_app/lender/dashboard.dart';
+import 'package:project_mobile_app/staff/sdashboard.dart';
+import 'package:project_mobile_app/lender/ldashboard.dart';
 import 'package:project_mobile_app/student/home.dart';
 
 import 'services/auth_service.dart';
@@ -26,9 +26,9 @@ class SportBorrowingApp extends StatelessWidget {
         '/': (context) => const WelcomePage(),
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
-        '/student/home': (context) => const HomePage(),
-        '/staff/dashboard': (context) => const DashboardPage(),
-        '/lender/dashboard': (context) => const LenderDashboardPage(),
+        '/student/home': (context) => const Home(),
+        '/staff/dashboard': (context) => const Sdashboard(),
+        '/lender/dashboard': (context) => const Ldashboard(),
       },
     );
   }

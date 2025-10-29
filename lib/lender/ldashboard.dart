@@ -3,14 +3,14 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:project_mobile_app/lender/approve.dart';
 import 'package:project_mobile_app/lender/history.dart';
 
-class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+class Ldashboard extends StatefulWidget {
+  const Ldashboard({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  State<Ldashboard> createState() => _LdashboardState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _LdashboardState extends State<Ldashboard> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
@@ -24,26 +24,26 @@ class _DashboardPageState extends State<DashboardPage> {
     late String routeName;
 
     if (index == 0) {
-      nextPage = const DashboardPage();
+      nextPage = const Ldashboard();
       routeName = '/dashboard';
     } else if (index == 1) {
-      nextPage = const ApproveListPage();
+      nextPage = const Approve();
       routeName = '/approve';
     } else if (index == 2) {
-      nextPage = const HistoryPage();
-       routeName = '/history';
+      nextPage = const History();
+      routeName = '/history';
     }
-      Navigator.pushReplacement(
-    context,
-    PageRouteBuilder(
-      settings: RouteSettings(name: routeName),
-      pageBuilder: (_, __, ___) => nextPage,
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-      transitionsBuilder: (_, __, ___, child) => child, 
-    ),
-  );
-}
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        settings: RouteSettings(name: routeName),
+        pageBuilder: (_, __, ___) => nextPage,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        transitionsBuilder: (_, __, ___, child) => child,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +61,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 end: Alignment.topRight,
               ),
             ),
-          child: AppBar(
+            child: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
               title: const Text(

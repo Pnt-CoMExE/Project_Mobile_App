@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
-class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+class Sdashboard extends StatefulWidget {
+  const Sdashboard({super.key});
 
   @override
-  State<DashboardPage> createState() => _DashboardPageState();
+  State<Sdashboard> createState() => _SdashboardState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _SdashboardState extends State<Sdashboard> {
   int _selectedIndex = 0; // 0: network, 1: home(equipment)
 
   @override

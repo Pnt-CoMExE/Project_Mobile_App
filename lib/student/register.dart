@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:project_mobile_app/services/auth_service.dart';
 import 'package:project_mobile_app/models/user.dart';
 
-import 'package:flutter/material.dart';
-
 class RegisterPage extends StatelessWidget {
   const RegisterPage({super.key});
 
@@ -64,7 +62,7 @@ class RegisterPage extends StatelessWidget {
                         "REGISTRATION",
                         style: TextStyle(
                           fontFamily: 'Poppins',
-                          color:  Color.fromARGB(255, 129, 56, 189),
+                          color: Color.fromARGB(255, 129, 56, 189),
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),

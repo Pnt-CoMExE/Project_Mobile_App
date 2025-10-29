@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:project_mobile_app/lender/dashboard.dart';
+import 'package:project_mobile_app/lender/ldashboard.dart';
 import 'package:project_mobile_app/lender/history.dart';
 
-class ApproveListPage extends StatefulWidget {
-  const ApproveListPage({Key? key}) : super(key: key);
+class Approve extends StatefulWidget {
+  const Approve({super.key});
 
   @override
-  State<ApproveListPage> createState() => _ApproveListPageState();
+  State<Approve> createState() => _ApproveState();
 }
 
-class _ApproveListPageState extends State<ApproveListPage> {
+class _ApproveState extends State<Approve> {
   int _selectedIndex = 1;
 
   final List<Map<String, dynamic>> requests = [
@@ -49,7 +49,8 @@ class _ApproveListPageState extends State<ApproveListPage> {
       ),
     );
   }
- void _onItemTapped(int index) {
+
+  void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
 
     setState(() {
@@ -60,26 +61,26 @@ class _ApproveListPageState extends State<ApproveListPage> {
     late String routeName;
 
     if (index == 0) {
-      nextPage = const DashboardPage();
+      nextPage = const Ldashboard();
       routeName = '/dashboard';
     } else if (index == 1) {
-      nextPage = const ApproveListPage();
+      nextPage = const Approve();
       routeName = '/approve';
     } else if (index == 2) {
-      nextPage = const HistoryPage();
-       routeName = '/history';
+      nextPage = const History();
+      routeName = '/history';
     }
-      Navigator.pushReplacement(
-    context,
-    PageRouteBuilder(
-      settings: RouteSettings(name: routeName),
-      pageBuilder: (_, __, ___) => nextPage,
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-      transitionsBuilder: (_, __, ___, child) => child, 
-    ),
-  );
-}
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        settings: RouteSettings(name: routeName),
+        pageBuilder: (_, __, ___) => nextPage,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        transitionsBuilder: (_, __, ___, child) => child,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,10 +93,7 @@ class _ApproveListPageState extends State<ApproveListPage> {
           child: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Color(0xFF8E24AA),
-                  Color(0xFF4A148C),
-                ],
+                colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
                 begin: Alignment.topLeft,
                 end: Alignment.topRight,
               ),
@@ -150,7 +148,6 @@ class _ApproveListPageState extends State<ApproveListPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-
                         ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.asset(
@@ -182,7 +179,9 @@ class _ApproveListPageState extends State<ApproveListPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 10),
+                                  horizontal: 24,
+                                  vertical: 10,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -200,7 +199,9 @@ class _ApproveListPageState extends State<ApproveListPage> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.red,
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 10),
+                                  horizontal: 24,
+                                  vertical: 10,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
@@ -226,10 +227,7 @@ class _ApproveListPageState extends State<ApproveListPage> {
         height: 60,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFF8E24AA),
-              Color(0xFF4A148C),
-            ],
+            colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
