@@ -2,7 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:project_mobile_app/staff/dashboard.dart';
+import 'package:project_mobile_app/staff/return.dart';
+import 'package:project_mobile_app/staff/history.dart';
 import 'package:project_mobile_app/staff/login.dart'; 
+import 'package:project_mobile_app/staff/equipment.dart'; 
 
 void main() {
   runApp(const SportBorrowingApp());
@@ -20,6 +23,9 @@ class SportBorrowingApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginStuden(),
         '/dashboard': (context) => const DashboardPage(),
+        '/equipment': (context) => const Home(),
+        '/history': (context) => const HistoryPage(),
+        '/return': (context) => const ReturnPage(),
       },
     );
   }

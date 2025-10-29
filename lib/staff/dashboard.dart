@@ -1,4 +1,3 @@
-//dashboard.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
@@ -10,58 +9,51 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // 0: network, 1: home(equipment)
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-       //🔹 AppBar สีม่วงเข้ม
+      // Gradient AppBar
       appBar: PreferredSize(
-  preferredSize: const Size.fromHeight(kToolbarHeight),
-  child: SafeArea( // ป้องกันล้นขอบบน
-    child: Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF8E24AA),
-            Color(0xFF4A148C),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.topRight,
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: SafeArea(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
+                begin: Alignment.topLeft,
+                end: Alignment.topRight,
+              ),
+            ),
+            child: AppBar(
+              title: const Text("Dashboard"),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              actions: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: IconButton(
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    onPressed: () {
+                      Navigator.pushReplacementNamed(context, '/login');
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-      child: AppBar(
-        title: const Text("Dashboard"),
-        backgroundColor: Colors.transparent, // ทำให้ AppBar โปร่งใสเพื่อเห็น gradient
-        elevation: 0,
-      actions: [
-  Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: IconButton(
-      icon: const Icon(Icons.logout, color: Colors.white),
-      onPressed: () {
-        // 🔹 เมื่อกด Logout -> กลับไปหน้า Login
-        Navigator.pushReplacementNamed(context, '/login');
-      },
-    ),
-  ),
-],
-      ),
-    ),
-  ),
-),
 
-      // 🔹 BottomNavigationBar 
+      // Gradient BottomNavigationBar
       bottomNavigationBar: Container(
-        height: 60, // ลดความสูง
+        height: 60,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFF8E24AA),
-              Color(0xFF4A148C),
-            ],
+            colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
             begin: Alignment.topCenter,
-            end: Alignment.bottomCenter, 
+            end: Alignment.bottomCenter,
           ),
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(20),
@@ -73,38 +65,53 @@ class _DashboardPageState extends State<DashboardPage> {
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
           ),
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            showSelectedLabels: false,
-            showUnselectedLabels: false,
-            currentIndex: _selectedIndex,
-            onTap: (index) {
-              setState(() {
-                _selectedIndex = index;
-              });
-            },
-            items: const [
-              BottomNavigationBarItem(
-                icon: Center(child: Icon(Icons.wifi_tethering)),
-                label: '',
-              ),
-              BottomNavigationBarItem(
-                icon: Center(child: Icon(Icons.grid_view_rounded)),
-                label: '',
-              ),
-              BottomNavigationBarItem(
-                icon: Center(child: Icon(Icons.calendar_today)),
-                label: '',
-              ),
-            ],
+          child: Theme(
+            data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
+            child: BottomNavigationBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.white70,
+              showSelectedLabels: false,
+              showUnselectedLabels: false,
+              currentIndex: _selectedIndex,
+              onTap: (index) {
+                if (index == 1) {
+                  Navigator.pushReplacementNamed(context, '/equipment');
+                  return;
+                }
+                if (index == 2) {
+                  Navigator.pushReplacementNamed(context, '/return');
+                  return;
+                } //
+                if (index == 3) {
+                  Navigator.pushReplacementNamed(context, '/history');
+                  return;
+                }
+                setState(() => _selectedIndex = index);
+              },
+
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.wifi_tethering),
+                  label: '',
+                ),
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.access_time_filled),
+                  label: '',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.calendar_today),
+                  label: '',
+                ),
+              ],
+            ),
           ),
         ),
       ),
 
-      // 🔹 เนื้อหาในหน้า
+      // Dashboard Content
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -120,7 +127,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     color: Colors.black12,
                     blurRadius: 5,
                     offset: Offset(2, 2),
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -134,22 +141,45 @@ class _DashboardPageState extends State<DashboardPage> {
                             centerSpaceRadius: 35,
                             sectionsSpace: 2,
                             sections: [
-                              PieChartSectionData(color: Colors.green, value: 17, title: ''),
-                              PieChartSectionData(color: Colors.red, value: 9, title: ''),
-                              PieChartSectionData(color: Colors.yellow, value: 10, title: ''),
-                              PieChartSectionData(color: Colors.blue, value: 7, title: ''),
+                              PieChartSectionData(
+                                color: Colors.green,
+                                value: 17,
+                                title: '',
+                              ),
+                              PieChartSectionData(
+                                color: Colors.red,
+                                value: 9,
+                                title: '',
+                              ),
+                              PieChartSectionData(
+                                color: Colors.yellow,
+                                value: 10,
+                                title: '',
+                              ),
+                              PieChartSectionData(
+                                color: Colors.blue,
+                                value: 7,
+                                title: '',
+                              ),
                             ],
                           ),
                         ),
                         Positioned(top: 10, left: 25, child: _numberBox("17")),
                         Positioned(top: 15, right: 40, child: _numberBox("9")),
-                        Positioned(bottom: 25, right: 40, child: _numberBox("10")),
-                        Positioned(bottom: 30, left: 25, child: _numberBox("7")),
+                        Positioned(
+                          bottom: 25,
+                          right: 40,
+                          child: _numberBox("10"),
+                        ),
+                        Positioned(
+                          bottom: 30,
+                          left: 25,
+                          child: _numberBox("7"),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 10),
-                  // === legend section ===
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: const [
@@ -170,7 +200,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
             const SizedBox(height: 20),
 
-            // === item list today card ===
+            // === Item list today ===
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -182,7 +212,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     color: Colors.black12,
                     blurRadius: 5,
                     offset: Offset(2, 2),
-                  )
+                  ),
                 ],
               ),
               child: Column(
@@ -195,10 +225,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text("All items :"),
-                      _numberBox("7"),
-                    ],
+                    children: [const Text("All items :"), _numberBox("7")],
                   ),
                   const SizedBox(height: 8),
                   Row(
