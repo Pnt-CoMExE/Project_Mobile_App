@@ -43,6 +43,10 @@ class SportBorrowingApp extends StatelessWidget {
       },
     );
   }
+import 'package:project_mobile_app/student/home.dart';
+
+void main() {
+  runApp(MaterialApp(home: Home(), debugShowCheckedModeBanner: false));
 }
           
         //'/login': (context) => const LoginStuden(),
