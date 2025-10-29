@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
 import 'student/welcome.dart';
 import 'student/login.dart';
 import 'student/register.dart';
@@ -22,4 +23,10 @@ class SportEquipmentApp extends StatelessWidget {
       },
     );
   }
+=======
+import 'package:project_mobile_app/student/home.dart';
+
+void main() {
+  runApp(MaterialApp(home: Home(), debugShowCheckedModeBanner: false));
+>>>>>>> a9eb85052ca3cd4fcc7f50cbea441d8e0ad93cee
 }
