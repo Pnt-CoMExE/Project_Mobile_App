@@ -1,11 +1,13 @@
-//main.dart
+// Refactored main.dart - central routes and role-aware navigation
 import 'package:flutter/material.dart';
-
+import 'package:project_mobile_app/student/welcome.dart';
+import 'package:project_mobile_app/student/login.dart';
+import 'package:project_mobile_app/student/register.dart';
 import 'package:project_mobile_app/staff/dashboard.dart';
-import 'package:project_mobile_app/staff/return.dart';
-import 'package:project_mobile_app/staff/history.dart';
-import 'package:project_mobile_app/staff/login.dart'; 
-import 'package:project_mobile_app/staff/equipment.dart'; 
+import 'package:project_mobile_app/lender/dashboard.dart';
+import 'package:project_mobile_app/student/home.dart';
+
+import 'services/auth_service.dart';
 
 void main() {
   runApp(const SportBorrowingApp());
@@ -17,15 +19,16 @@ class SportBorrowingApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Sport Borrowing',
       debugShowCheckedModeBanner: false,
-      // 🔹 เริ่มต้นที่หน้า Login
-      initialRoute: '/login',
+      initialRoute: '/',
       routes: {
-        '/login': (context) => const LoginStuden(),
-        '/dashboard': (context) => const DashboardPage(),
-        '/equipment': (context) => const Home(),
-        '/history': (context) => const HistoryPage(),
-        '/return': (context) => const ReturnPage(),
+        '/': (context) => const WelcomePage(),
+        '/login': (context) => const LoginPage(),
+        '/register': (context) => const RegisterPage(),
+        '/student/home': (context) => const HomePage(),
+        '/staff/dashboard': (context) => const DashboardPage(),
+        '/lender/dashboard': (context) => const LenderDashboardPage(),
       },
     );
   }

@@ -1,11 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:project_mobile_app/services/auth_service.dart';
+import 'package:project_mobile_app/models/user.dart';
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _username = TextEditingController();
+  final _password = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  void _doLogin() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      User user = await AuthService.login(_username.text.trim(), _password.text.trim());
+      // navigate based on role
+      if (user.role == 'student') {
+        Navigator.pushReplacementNamed(context, '/student/home');
+      } else if (user.role == 'staff') {
+        Navigator.pushReplacementNamed(context, '/staff/dashboard');
+      } else if (user.role == 'lender' || user.role == 'admin') {
+        Navigator.pushReplacementNamed(context, '/lender/dashboard');
+      } else {
+        Navigator.pushReplacementNamed(context, '/student/home');
+      }
+    } catch (e) {
+      setState(() { _error = e.toString(); });
+    } finally {
+      setState(() { _loading = false; });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+(
       body: Container(
         width: double.infinity,
         height: double.infinity,
