@@ -45,8 +45,8 @@ const List<RequestItem> mockRequests = [
 ];
 // ---------------------------------------------
 
-class Request extends StatelessWidget {
-  const Request({super.key});
+class RequestPage extends StatelessWidget {
+  const RequestPage({super.key});
 
   @override
   Widget build(BuildContext context) {

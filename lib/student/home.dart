@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // [เพิ่ม] Import SharedPreferences
 import 'request.dart'; // Import the Request screen
 import 'history.dart'; // Import the History screen
 
@@ -24,14 +25,14 @@ class SportItem {
 // Main Widget: HomeScreen (Now acts as the Navigator and Home Content)
 // ==========================================================
 
-class Home extends StatefulWidget {
-  const Home({super.key});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key});
 
   @override
-  State<Home> createState() => _HomeState();
+  State<HomePage> createState() => _HomePageState();
 }
 
-class _HomeState extends State<Home> {
+class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0; // For BottomNavBar: 0=Home, 1=Request, 2=History
 
   // Define the list of pages to be navigated
@@ -43,7 +44,7 @@ class _HomeState extends State<Home> {
     // Initialize the list of pages. Note: _HomeScreenContent is the actual content of the Home tab.
     _widgetOptions = <Widget>[
       const _HomeScreenContent(), // 0: The actual Home content (as a sub-widget)
-      const Request(), // 1: Request screen (from request.dart)
+      const RequestPage(), // 1: Request screen (from request.dart)
       const History(), // 2: History screen (from history.dart)
     ];
   }
@@ -54,7 +55,7 @@ class _HomeState extends State<Home> {
     });
   }
 
-  // Function to show the Logout confirmation dialog (Logic remains the same)
+  // [แก้ไข] อัปเดตฟังก์ชัน Logout
   void _showLogoutDialog() {
     showDialog(
       context: context,
@@ -103,9 +104,27 @@ class _HomeState extends State<Home> {
                   vertical: 10,
                 ),
               ),
-              onPressed: () {
-                print("User logged out!");
-                Navigator.of(dialogContext).pop();
+              // [แก้ไข] เปลี่ยนเป็น async เพื่อใช้ SharedPreferences
+              onPressed: () async {
+                print("User logging out...");
+
+                // 1. ล้าง SharedPreferences
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear(); // ลบ token, role และอื่นๆ ทั้งหมด
+
+                // 2. ปิด Dialog
+                if (mounted) {
+                  Navigator.of(dialogContext).pop();
+                }
+
+                // 3. กลับไปหน้า Welcome ('/') และล้างหน้าจอเก่าทั้งหมด
+                if (mounted) {
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/', // ไปที่ Route '/' (WelcomePage)
+                    (Route<dynamic> route) => false, // ลบทุก Route เก่าทิ้ง
+                  );
+                }
               },
             ),
           ],
@@ -258,7 +277,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
       name: 'Basketball',
       icon: Icons.sports_basketball,
       quantity: 0,
-      status: ItemStatus.borrowed,
+      status: ItemStatus.available,
     ),
     SportItem(
       name: 'Tennis',
@@ -270,7 +289,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
       name: 'Petanque',
       icon: Icons.circle_outlined,
       quantity: 0,
-      status: ItemStatus.pending,
+      status: ItemStatus.available,
     ),
     SportItem(
       name: 'Futsal',

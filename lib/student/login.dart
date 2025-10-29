@@ -1,52 +1,103 @@
 import 'package:flutter/material.dart';
-import 'package:project_mobile_app/services/auth_service.dart';
-import 'package:project_mobile_app/models/user.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// [หมายเหตุ] นี่คือไฟล์ login.dart ที่อยู่ใน lib/student/login.dart
+// (อิงตามไฟล์ main.dart ของคุณ)
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final _username = TextEditingController();
-  final _password = TextEditingController();
-  bool _loading = false;
-  String? _error;
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
-  void _doLogin() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> loginUser() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
     try {
-      User user = await AuthService.login(
-        _username.text.trim(),
-        _password.text.trim(),
+      final url = Uri.parse('http://10.0.2.2:3000/api/auth/login');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'username': _usernameController.text.trim(),
+          'password': _passwordController.text.trim(),
+        }),
       );
-      // navigate based on role
-      if (user.role == 'student') {
-        Navigator.pushReplacementNamed(context, '/student/home');
-      } else if (user.role == 'staff') {
-        Navigator.pushReplacementNamed(context, '/staff/dashboard');
-      } else if (user.role == 'lender' || user.role == 'admin') {
-        Navigator.pushReplacementNamed(context, '/lender/dashboard');
+
+      if (!mounted) return;
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['user']['token']);
+        int role = data['user']['u_role'];
+        await prefs.setInt('role', role);
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('✅ Login successful!')));
+
+        if (!mounted) return;
+
+        // [แก้ไข]!!!: เปลี่ยนชื่อ Route ให้ตรงกับ main.dart
+        if (role == 1) {
+          // 1 = student
+          Navigator.pushReplacementNamed(context, '/student/home');
+        } else if (role == 2) {
+          // 2 = staff
+          Navigator.pushReplacementNamed(context, '/staff/dashboard');
+        } else if (role == 3) {
+          // 3 = lender
+          Navigator.pushReplacementNamed(context, '/lender/dashboard');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Unknown role, please contact admin.'),
+            ),
+          );
+        }
       } else {
-        Navigator.pushReplacementNamed(context, '/student/home');
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('❌ ${data['message']}')));
       }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('⚠️ Error: $e')));
+      }
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // [หมายเหตุ] UI ส่วนนี้คือดีไซน์เดิมที่เราทำไว้
+    // (หากไฟล์ login.dart ของคุณมี UI ของตัวเอง ให้ใช้ส่วนนั้นแทน)
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -59,12 +110,12 @@ class _LoginPageState extends State<LoginPage> {
         ),
         child: Stack(
           children: [
-            // 🏠 ปุ่มย้อนกลับ
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(10),
+                // [แก้ไข] ปุ่ม Back ควรไปที่ '/' (WelcomePage)
                 child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () => Navigator.pushReplacementNamed(context, '/'),
                   child: const Text(
                     "< Back",
                     style: TextStyle(
@@ -76,8 +127,6 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-
-            // ⚪ กล่อง Login สีขาวโค้งมน
             Align(
               alignment: Alignment.bottomCenter,
               child: Container(
@@ -95,90 +144,120 @@ class _LoginPageState extends State<LoginPage> {
                     horizontal: 25,
                     vertical: 40,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Sign in",
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          color: Colors.purple,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-
-                      // ช่อง Username
-                      TextField(
-                        decoration: InputDecoration(
-                          labelText: "Username",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // ช่อง Password
-                      TextField(
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          labelText: "Password",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 30),
-
-                      // ปุ่ม Login Gradient
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  child: SingleChildScrollView(
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Text(
+                            "Sign in",
+                            style: TextStyle(
+                              fontFamily: 'Poppins',
+                              color: Color.fromARGB(255, 129, 56, 189),
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
                             ),
-                            backgroundColor: Colors.transparent,
-                            elevation: 4,
                           ),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFA25AC3), Color(0xFF4F1C7B)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
+                          const SizedBox(height: 30),
+                          TextFormField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              labelText: "Username",
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                              ),
                             ),
-                            child: Container(
-                              alignment: Alignment.center,
-                              child: const Text(
-                                "Login",
-                                style: TextStyle(
-                                  fontFamily: 'Poppins',
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                            validator: (v) => v == null || v.isEmpty
+                                ? "Please enter username"
+                                : null,
+                          ),
+                          const SizedBox(height: 20),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                              ),
+                            ),
+                            validator: (v) => v == null || v.isEmpty
+                                ? "Please enter password"
+                                : null,
+                          ),
+                          const SizedBox(height: 30),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              onPressed: _isLoading ? null : loginUser,
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                backgroundColor: Colors.transparent,
+                                elevation: 4,
+                              ),
+                              child: Ink(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFFA25AC3),
+                                      Color(0xFF4F1C7B),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Container(
+                                  alignment: Alignment.center,
+                                  child: _isLoading
+                                      ? const CircularProgressIndicator(
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                        )
+                                      : const Text(
+                                          "Login",
+                                          style: TextStyle(
+                                            fontFamily: 'Poppins',
+                                            fontSize: 16,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 15),
+                          TextButton(
+                            onPressed: () {
+                              // [แก้ไข] ไปที่ '/register' ตามที่ main.dart กำหนด
+                              Navigator.pushNamed(context, '/register');
+                            },
+                            child: const Text(
+                              "Create new account",
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                color: Color.fromARGB(255, 129, 56, 189),
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
