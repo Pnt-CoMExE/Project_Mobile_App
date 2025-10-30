@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:project_mobile_app/lender/ldashboard.dart';
-import 'package:project_mobile_app/lender/history.dart';
+// [REMOVED] Imports for Ldashboard and History (no longer needed here)
 
 class Approve extends StatefulWidget {
   const Approve({super.key});
@@ -10,8 +9,9 @@ class Approve extends StatefulWidget {
 }
 
 class _ApproveState extends State<Approve> {
-  int _selectedIndex = 1;
+  // [REMOVED] _selectedIndex (now managed by ldashboard.dart)
 
+  // Mock data (This state is kept locally in this widget)
   final List<Map<String, dynamic>> requests = [
     {
       "item": "Volleyball - 060101",
@@ -19,7 +19,7 @@ class _ApproveState extends State<Approve> {
       "borrowDate": "20/10/2025",
       "returnDate": "21/10/2025",
       "status": "pending",
-      "image": "assets/images/volleyball.png",
+      "image": "assets/images/volleyball.png", // Ensure this asset exists
     },
     {
       "item": "Badminton Racket - 050101",
@@ -27,16 +27,18 @@ class _ApproveState extends State<Approve> {
       "borrowDate": "21/10/2025",
       "returnDate": "21/10/2025",
       "status": "pending",
-      "image": "assets/images/badminton.png",
+      "image": "assets/images/badminton.png", // Ensure this asset exists
     },
   ];
 
+  // Logic for handling approve/reject
   void handleAction(int index, String action) {
     final item = requests[index];
     setState(() {
       requests.removeAt(index);
     });
 
+    // Show feedback
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -50,223 +52,120 @@ class _ApproveState extends State<Approve> {
     );
   }
 
-  void _onItemTapped(int index) {
-    if (index == _selectedIndex) return;
-
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    late Widget nextPage;
-    late String routeName;
-
-    if (index == 0) {
-      nextPage = const Ldashboard();
-      routeName = '/dashboard';
-    } else if (index == 1) {
-      nextPage = const Approve();
-      routeName = '/approve';
-    } else if (index == 2) {
-      nextPage = const History();
-      routeName = '/history';
-    }
-    Navigator.pushReplacement(
-      context,
-      PageRouteBuilder(
-        settings: RouteSettings(name: routeName),
-        pageBuilder: (_, __, ___) => nextPage,
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-        transitionsBuilder: (_, __, ___, child) => child,
-      ),
-    );
-  }
+  // [REMOVED] _onItemTapped function (now managed by ldashboard.dart)
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: SafeArea(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
-                begin: Alignment.topLeft,
-                end: Alignment.topRight,
-              ),
+    // [MODIFIED] Return only the body content, not a full Scaffold
+    return requests.isEmpty
+        ? const Center(
+            child: Text(
+              "No pending requests",
+              style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
-            child: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              title: const Text(
-                "Approve List",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+          )
+        : ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: requests.length,
+            itemBuilder: (context, index) {
+              final req = requests[index];
+              return Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-              centerTitle: true,
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: () {
-                      Navigator.pushReplacementNamed(context, '/login');
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-
-      body: requests.isEmpty
-          ? const Center(
-              child: Text(
-                "No pending requests",
-                style: TextStyle(fontSize: 18, color: Colors.grey),
-              ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: requests.length,
-              itemBuilder: (context, index) {
-                final req = requests[index];
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.asset(
-                            req["image"],
-                            height: 120,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          "Item : ${req["item"]}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text("Borrower : ${req["username"]}"),
-                        Text("Borrow date : ${req["borrowDate"]}"),
-                        Text("Return on : ${req["returnDate"]}"),
-                        const SizedBox(height: 12),
-
-                        // ปุ่ม APPROVE / REJECT
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () => handleAction(index, "approve"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
+                elevation: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          req["image"],
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          // [ADDED] Error builder in case image fails
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 120,
+                              width: double.infinity,
+                              color: Colors.grey[200],
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey[600],
+                                size: 40,
                               ),
-                              child: const Text(
-                                "APPROVE",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        "Item : ${req["item"]}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text("Borrower : ${req["username"]}"),
+                      Text("Borrow date : ${req["borrowDate"]}"),
+                      Text("Return on : ${req["returnDate"]}"),
+                      const SizedBox(height: 12),
+
+                      // ปุ่ม APPROVE / REJECT
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => handleAction(index, "approve"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            ElevatedButton(
-                              onPressed: () => handleAction(index, "reject"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: const Text(
-                                "REJECT",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            child: const Text(
+                              "APPROVE",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => handleAction(index, "reject"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              "REJECT",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
-
-      bottomNavigationBar: Container(
-        height: 60,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-          child: BottomNavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white70,
-            showSelectedLabels: false,
-            showUnselectedLabels: false,
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Center(child: Icon(Icons.wifi_tethering)),
-                label: '',
-              ),
-              BottomNavigationBarItem(
-                icon: Center(child: Icon(Icons.grid_view_rounded)),
-                label: '',
-              ),
-              BottomNavigationBarItem(
-                icon: Center(child: Icon(Icons.calendar_today)),
-                label: '',
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+                ),
+              );
+            },
+          );
   }
 }
