@@ -1,7 +1,15 @@
 // equipment.dart
 import 'package:flutter/material.dart';
 
-// Enum for managing item status
+// [แก้ไข] เปลี่ยนชื่อ Class จาก Home เป็น EquipmentPage เพื่อไม่ให้ซ้ำกัน
+class EquipmentPage extends StatefulWidget {
+  const EquipmentPage({super.key});
+
+  @override
+  State<EquipmentPage> createState() => _EquipmentPageState();
+}
+
+// --- ส่วน Model และ Helper (เหมือนเดิม) ---
 enum ItemStatus { available, disable, borrowed, pending }
 
 ButtonStyle _greenBtn() {
@@ -13,7 +21,6 @@ ButtonStyle _greenBtn() {
     elevation: 2,
   );
 }
-
 
 class SportItem {
   String name;
@@ -32,170 +39,32 @@ class SportItem {
     this.itemId,
   });
 }
+// --- จบส่วน Model และ Helper ---
 
-// ==========================================================
-// Home (Equipment) Screen
-// ==========================================================
-class Home extends StatefulWidget {
-  const Home({super.key});
-
-  @override
-  State<Home> createState() => _HomeState();
-}
-
-class _HomeState extends State<Home> {
-  int _selectedIndex = 1;
+// [แก้ไข] เปลี่ยนชื่อ State
+class _EquipmentPageState extends State<EquipmentPage> {
+  // [แก้ไข] ย้าย GlobalKey มาไว้ใน State นี้
   final GlobalKey<__HomeScreenContentState> _contentKey =
       GlobalKey<__HomeScreenContentState>();
 
-  void _onItemTapped(int index) {
-    if (index == 0) {
-      Navigator.pushReplacementNamed(context, '/dashboard');
-      return;
-    }
-    if (index == 2) {
-      Navigator.pushReplacementNamed(context, '/return');
-      return;
-    } //
-    if (index == 3) {
-      Navigator.pushReplacementNamed(context, '/history');
-      return;
-    }
-    setState(() => _selectedIndex = index);
-  }
-
-  String get _appBarTitle => _selectedIndex == 1 ? 'Home' : '';
-  IconData get _appBarIcon =>
-      _selectedIndex == 1 ? Icons.home : Icons.wifi_tethering;
-
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (c) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Are you sure to Logout',
-          textAlign: TextAlign.center,
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              size: 52,
-              color: Colors.grey[700],
-            ),
-          ],
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c),
-            child: const Text('Cancel'),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pop(c),
-            icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-            label: const Text('Logout', style: TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // [ลบ] _selectedIndex, _onItemTapped, _showLogoutDialog, _appBarTitle, _appBarIcon
+  // (ทั้งหมดนี้ถูกย้ายไป sdashboard.dart (Wrapper) แล้ว)
 
   @override
   Widget build(BuildContext context) {
+    // [แก้ไข]
+    // 1. เรายังคง Scaffold ไว้ เพื่อใช้ FloatingActionButton
+    // 2. แต่เราลบ AppBar และ BottomNavigationBar ที่ซ้ำซ้อนออก
     return Scaffold(
-      // Gradient AppBar
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: SafeArea(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
-                begin: Alignment.topLeft,
-                end: Alignment.topRight,
-              ),
-            ),
-            child: AppBar(
-              title: Text(_appBarTitle),
-              leading: Icon(_appBarIcon, color: Colors.white),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  onPressed: _showLogoutDialog,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      // [ลบ] AppBar
+      // [ลบ] Gradient AppBar
 
-      // Body
+      // Body (เหมือนเดิม)
       body: _HomeScreenContent(key: _contentKey),
 
-      // BottomNavigationBar
-      bottomNavigationBar: Container(
-        height: 60,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-          child: Theme(
-            data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
-            child: BottomNavigationBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              selectedItemColor: Colors.white,
-              unselectedItemColor: Colors.white70,
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.wifi_tethering),
-                  label: '',
-                ),
-                BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.access_time_filled),
-                  label: '',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.calendar_today),
-                  label: '',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      // [ลบ] BottomNavigationBar
 
-      // Green Add button
+      // Green Add button (เหมือนเดิม)
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: ElevatedButton(
         onPressed: () => _contentKey.currentState?.showAddItemDialog(),
@@ -219,6 +88,7 @@ class _HomeState extends State<Home> {
 
 // ==========================================================
 // Home Content (list + add overlay + edit overlay)
+// (ส่วนนี้เหมือนเดิมเกือบทั้งหมด)
 // ==========================================================
 class _HomeScreenContent extends StatefulWidget {
   const _HomeScreenContent({super.key});
@@ -273,10 +143,10 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     ),
   ];
 
-  // ======= ADD OVERLAY (เดิม) =======
+  // ======= ADD OVERLAY (แก้ไข) =======
   void showAddItemDialog() {
     final nameCtrl = TextEditingController();
-    final qtyCtrl = TextEditingController();
+    final qtyCtrl = TextEditingController(); // Controller สำหรับ Quantity
     ItemStatus status = ItemStatus.available; // default
     List<String> errors = [];
 
@@ -317,7 +187,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
                   _items.add(
                     SportItem(
                       name: name,
-                      icon: Icons.sports_soccer,
+                      icon: Icons.sports_soccer, // Mock icon
                       quantity: qty!,
                       status: status,
                       itemId: 'NEW', // mock
@@ -371,7 +241,18 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
                       ),
                     ),
                     const SizedBox(height: 6),
+                    // [!!! แก้ไข Bug !!!] เพิ่มช่อง Quantity ที่ขาดไป
+                    TextField(
+                      controller: qtyCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: _input(''),
+                      onChanged: (_) {
+                        if (errors.isNotEmpty) setLocal(() => errors = []);
+                      },
+                    ),
+                    const SizedBox(height: 14),
 
+                    // [จบการแก้ไข Bug]
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -407,7 +288,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     );
   }
 
-  // ======= EDIT OVERLAY =======
+  // ======= EDIT OVERLAY (เหมือนเดิม) =======
   void _openEditOverlay(SportItem item) {
     // 1) ถ้า borrowed -> แจ้งเตือนใน overlay และจบ
     if (item.status == ItemStatus.borrowed) {
@@ -685,6 +566,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      // [แก้ไข] เพิ่ม Padding ด้านล่าง เพื่อไม่ให้ FAB (ปุ่ม Add) บัง
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
       itemCount: _items.length,
       itemBuilder: (context, index) {
@@ -728,7 +610,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
   };
 }
 
-// ---------- small UI helpers ----------
+// ---------- small UI helpers (เหมือนเดิม) ----------
 InputDecoration _input(String hint) => InputDecoration(
   hintText: hint, // '' for empty hint
   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
