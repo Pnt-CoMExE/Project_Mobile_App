@@ -271,7 +271,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
       name: 'Badminton',
       icon: Icons.sports_tennis,
       quantity: 5,
-      status: ItemStatus.disable,
+      status: ItemStatus.available,
     ),
     SportItem(
       name: 'Basketball',
