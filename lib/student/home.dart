@@ -277,7 +277,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
       name: 'Basketball',
       icon: Icons.sports_basketball,
       quantity: 0,
-      status: ItemStatus.available,
+      status: ItemStatus.disable,
     ),
     SportItem(
       name: 'Tennis',
@@ -289,7 +289,7 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
       name: 'Petanque',
       icon: Icons.circle_outlined,
       quantity: 0,
-      status: ItemStatus.available,
+      status: ItemStatus.disable,
     ),
     SportItem(
       name: 'Futsal',
