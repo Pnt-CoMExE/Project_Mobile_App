@@ -65,17 +65,20 @@ class Request extends StatelessWidget {
 
 // Helper for image URLs based on item name (for demonstration)
 String _getItemImageUrl(String name) {
-  switch (name) {
-    case 'Volleyball':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Volley';
-    case 'Petanque':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=P';
-    case 'Basketball':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Basket';
+  final normalized = name.trim().toLowerCase();
+  switch (normalized) {
+    case 'volleyball':
+      return 'assets/images/volleyball.png';
+    case 'petanque':
+      return 'assets/images/petanque.png';
+    case 'basketball':
+      return 'assets/images/basketball.png';
     default:
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Item';
+      return 'https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg';
   }
 }
+
+
 
 class RequestResultCard extends StatelessWidget {
   final RequestItem item;
@@ -125,7 +128,7 @@ class RequestResultCard extends StatelessWidget {
                 // Item Image Placeholder
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12.0),
-                  child: Image.network(
+                  child: Image.asset(
                     _getItemImageUrl(item.name),
                     width: 70,
                     height: 70,
@@ -154,7 +157,7 @@ class RequestResultCard extends StatelessWidget {
             ),
             const Divider(height: 24, thickness: 1),
             // Info Row: Item Type
-            _buildInfoRow('Item :', item.name),
+            _buildInfoRow('Category :', item.name),
             // Info Row: Borrow Date and Time (รวมกันตามภาพ)
             _buildInfoRow('Borrow :', '${item.dateRequested}'),
             _buildInfoRow(
@@ -162,7 +165,7 @@ class RequestResultCard extends StatelessWidget {
               item.timeRequested,
             ), // Displaying time on its own line
             // Info Row: Return Date
-            _buildInfoRow('Return on :', item.returnOn),
+            _buildInfoRow('Date Return :', item.returnOn),
             // Info Row: Status (Chip)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
