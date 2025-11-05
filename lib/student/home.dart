@@ -1,30 +1,32 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // [เพิ่ม] Import SharedPreferences
-import 'request.dart'; // Import the Request screen
-import 'history.dart'; // Import the History screen
+import 'package:shared_preferences/shared_preferences.dart';
+import 'request.dart';
+import 'history.dart';
 
-// Enum for managing item status (Kept here for main logic)
+// =======================================
+// Enum และ Model
+// =======================================
 enum ItemStatus { available, disable, borrowed, pending }
 
-// Model class for item data (Kept here for main logic)
 class SportItem {
   final String name;
-  final IconData icon;
-  int quantity;
-  ItemStatus status;
+  final String image;
+  final int quantity;
+  final ItemStatus status;
+  final List<Map<String, dynamic>>? subItems;
 
   SportItem({
     required this.name,
-    required this.icon,
+    required this.image,
     required this.quantity,
     required this.status,
+    this.subItems,
   });
 }
 
-// ==========================================================
-// Main Widget: HomeScreen (Now acts as the Navigator and Home Content)
-// ==========================================================
-
+// =======================================
+// Main Home Page
+// =======================================
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -33,668 +35,430 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0; // For BottomNavBar: 0=Home, 1=Request, 2=History
+  int _selectedIndex = 0;
+  bool showItemList = false;
+  bool showConfirmBar = false;
+  String selectedCategory = '';
 
-  // Define the list of pages to be navigated
-  late final List<Widget> _widgetOptions;
+  late final List<SportItem> _items;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the list of pages. Note: _HomeScreenContent is the actual content of the Home tab.
-    _widgetOptions = <Widget>[
-      const _HomeScreenContent(), // 0: The actual Home content (as a sub-widget)
-      const RequestPage(), // 1: Request screen (from request.dart)
-      const History(), // 2: History screen (from history.dart)
+    _items = [
+      SportItem(
+        name: 'Badminton',
+        image: 'assets/images/badminton.png',
+        quantity: 5,
+        status: ItemStatus.available,
+        subItems: [
+          {
+            'name': 'Yonex Badminton Racket',
+            'image': 'assets/images/badminton.png',
+            'status': ItemStatus.available,
+          },
+          {
+            'name': 'Yonex Badminton Racket',
+            'image': 'assets/images/badminton.png',
+            'status': ItemStatus.available,
+          },
+          {
+            'name': 'Badminton Ball',
+            'image': 'assets/images/shuttle.png',
+            'status': ItemStatus.available,
+          },
+          {
+            'name': 'Badminton Ball',
+            'image': 'assets/images/shuttle.png',
+            'status': ItemStatus.borrowed,
+          },
+        ],
+      ),
+      SportItem(
+        name: 'Balls',
+        image: 'assets/images/basketball.png',
+        quantity: 0,
+        status: ItemStatus.disable,
+      ),
+      SportItem(
+        name: 'Tennis',
+        image: 'assets/images/tennis.png',
+        quantity: 6,
+        status: ItemStatus.available,
+      ),
     ];
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  Future<String> _getUsername() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('username') ?? 'Guest';
   }
 
-  // [แก้ไข] อัปเดตฟังก์ชัน Logout
-  void _showLogoutDialog() {
+  Color _getColor(ItemStatus s) => {
+        ItemStatus.available: Colors.green,
+        ItemStatus.disable: Colors.red,
+        ItemStatus.pending: Colors.yellow.shade700,
+        ItemStatus.borrowed: Colors.blue,
+      }[s]!;
+
+  String _getText(ItemStatus s) => {
+        ItemStatus.available: 'Available',
+        ItemStatus.disable: 'Disable',
+        ItemStatus.pending: 'Pending',
+        ItemStatus.borrowed: 'Borrowed',
+      }[s]!;
+
+  // ===============================
+  // return
+  // ===============================
+  void _showReturnDialog() {
+    String selectedDay = 'Tomorrow';
     showDialog(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          title: const Text(
-            'Are you sure to Logout',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                size: 52,
-                color: Colors.grey[700],
-              ),
-            ],
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: <Widget>[
-            TextButton(
-              child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Choose return day'),
+            const SizedBox(height: 8),
+            DropdownButton<String>(
+              value: selectedDay,
+              items: const [
+                DropdownMenuItem(value: 'Today', child: Text('Today')),
+                DropdownMenuItem(value: 'Tomorrow', child: Text('Tomorrow')),
+                DropdownMenuItem(value: 'Next Week', child: Text('Next Week')),
+              ],
+              onChanged: (v) => setState(() => selectedDay = v!),
+            ),
+            const SizedBox(height: 10),
+            ElevatedButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop();
+                Navigator.pop(context);
+                setState(() => showConfirmBar = true);
+                showItemList = false;
               },
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-              label: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.white),
-              ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20.0),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-              ),
-              // [แก้ไข] เปลี่ยนเป็น async เพื่อใช้ SharedPreferences
-              onPressed: () async {
-                print("User logging out...");
-
-                // 1. ล้าง SharedPreferences
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.clear(); // ลบ token, role และอื่นๆ ทั้งหมด
-
-                // 2. ปิด Dialog
-                if (mounted) {
-                  Navigator.of(dialogContext).pop();
-                }
-
-                // 3. กลับไปหน้า Welcome ('/') และล้างหน้าจอเก่าทั้งหมด
-                if (mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/', // ไปที่ Route '/' (WelcomePage)
-                    (Route<dynamic> route) => false, // ลบทุก Route เก่าทิ้ง
-                  );
-                }
-              },
-            ),
+                  backgroundColor: Colors.green, shape: const StadiumBorder()),
+              child: const Text('OK'),
+            )
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  // Helper to determine the title based on selected index
-  String get _appBarTitle {
-    switch (_selectedIndex) {
-      case 0:
-        return 'Home';
-      case 1:
-        return 'My Requests';
-      case 2:
-        return 'Borrow History';
-      default:
-        return 'App';
-    }
-  }
-
-  // Helper to determine the icon based on selected index
-  IconData get _appBarIcon {
-    switch (_selectedIndex) {
-      case 0:
-        return Icons.home;
-      case 1:
-        return Icons.notifications;
-      case 2:
-        return Icons.calendar_today;
-      default:
-        return Icons.home;
-    }
-  }
-
+  // ===============================
+  // UI
+  // ===============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.deepPurple,
-        elevation: 0,
-        leading: Icon(_appBarIcon, color: Colors.white, size: 30),
-        title: Text(
-          _appBarTitle,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white, size: 30),
-            onPressed: _showLogoutDialog,
-          ),
-        ],
-      ),
-      // Use IndexedStack to display the selected page
-      body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
-      // Bottom Navigation Bar (The link to other pages)
-      bottomNavigationBar: BottomNavigationBar(
-        items: <BottomNavigationBarItem>[
-          // 1. Home Tab (Icon: The first one)
-          BottomNavigationBarItem(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _selectedIndex == 0
-                    ? Colors.white.withOpacity(0.3)
-                    : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.home_outlined),
-            ),
-            label: 'Home',
-          ),
-          // 2. Request Tab (Icon: The middle one)
-          BottomNavigationBarItem(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _selectedIndex == 1
-                    ? Colors.white.withOpacity(0.3)
-                    : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.notifications_outlined),
-            ),
-            label: 'Requests',
-          ),
-          // 3. History Tab (Icon: The last one)
-          BottomNavigationBarItem(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: _selectedIndex == 2
-                    ? Colors.white.withOpacity(0.3)
-                    : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.calendar_today_outlined),
-            ),
-            label: 'History',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withOpacity(0.7),
-        backgroundColor: Colors.deepPurple,
-        type: BottomNavigationBarType.fixed,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        onTap: _onItemTapped, // This function changes _selectedIndex
-      ),
-    );
-  }
-}
-
-// ==========================================================
-// Home Content (Moved from _HomeScreenState.build() to a separate widget)
-// ==========================================================
-
-class _HomeScreenContent extends StatefulWidget {
-  const _HomeScreenContent();
-
-  @override
-  State<_HomeScreenContent> createState() => __HomeScreenContentState();
-}
-
-class __HomeScreenContentState extends State<_HomeScreenContent> {
-  bool _showConfirmationCard = false; // Toggle confirmation card visibility
-  SportItem? _selectedItem; // Track the item being borrowed
-  String _selectedReturnDay = 'Tomorrow'; // Default value for the dropdown
-
-  // Mock-up data list
-  final List<SportItem> _items = [
-    SportItem(
-      name: 'Volleyball',
-      icon: Icons.sports_volleyball,
-      quantity: 6,
-      status: ItemStatus.available,
-    ),
-    SportItem(
-      name: 'Badminton',
-      icon: Icons.sports_tennis,
-      quantity: 5,
-      status: ItemStatus.available,
-    ),
-    SportItem(
-      name: 'Basketball',
-      icon: Icons.sports_basketball,
-      quantity: 0,
-      status: ItemStatus.disable,
-    ),
-    SportItem(
-      name: 'Tennis',
-      icon: Icons.sports_tennis,
-      quantity: 6,
-      status: ItemStatus.available,
-    ),
-    SportItem(
-      name: 'Petanque',
-      icon: Icons.circle_outlined,
-      quantity: 0,
-      status: ItemStatus.disable,
-    ),
-    SportItem(
-      name: 'Futsal',
-      icon: Icons.sports_soccer,
-      quantity: 6,
-      status: ItemStatus.available,
-    ),
-  ];
-
-  // Check if user already has an active borrow or pending request
-  bool _hasActiveBorrow() {
-    return _items.any(
-      (item) =>
-          item.status == ItemStatus.borrowed ||
-          item.status == ItemStatus.pending,
-    );
-  }
-
-  // Show borrow limit dialog
-  void _showBorrowLimitDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 16),
-              const Text(
-                'You can borrow only 1 item!!',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Icon(
-                Icons.warning_amber_rounded,
-                size: 52,
-                color: Colors.grey[700],
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                child: const Text('OK'),
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // Show return day chooser
-  void _showReturnDayDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext dialogContext) {
-        // Use a local variable to hold the dialog's state
-        String dialogSelectedDay = _selectedReturnDay;
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16.0),
-              ),
-              title: const Text('Choose return day'),
-              content: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12.0,
-                  vertical: 4.0,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12.0),
-                  border: Border.all(color: Colors.grey.shade400),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: dialogSelectedDay,
-                    items: <String>['Tomorrow', 'In 2 days', 'In 3 days'].map((
-                      String value,
-                    ) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setDialogState(() {
-                          dialogSelectedDay = newValue;
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ),
-              actionsAlignment: MainAxisAlignment.center,
-              actions: <Widget>[
-                ElevatedButton(
-                  onPressed: () {
-                    // This is the final confirmation
-                    setState(() {
-                      if (_selectedItem != null) {
-                        // Find the actual item in the list and update its status
-                        final itemToUpdate = _items.firstWhere(
-                          (item) => item.name == _selectedItem!.name,
-                        );
-
-                        itemToUpdate.status = ItemStatus.pending;
-                        itemToUpdate.quantity = 0; // Item is now pending
-
-                        _selectedReturnDay =
-                            dialogSelectedDay; // Save the choice
-                      }
-                      _hideConfirmation(); // Hide the confirmation card
-                    });
-                    Navigator.of(dialogContext).pop(); // Close this dialog
-                    print(
-                      'Item ${_selectedItem?.name} borrow request sent, return: $_selectedReturnDay',
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.0),
+      body: Stack(
+        children: [
+          FutureBuilder<String>(
+            future: _getUsername(),
+            builder: (context, snapshot) {
+              final username = snapshot.data ?? '(username from database)';
+              return Column(
+                children: [
+                  _buildHeader(username),
+                  if (showConfirmBar) _buildConfirmBar(),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: showItemList
+                          ? _buildItemList()
+                          : _buildCategoryList(),
                     ),
                   ),
-                  child: const Text(
-                    'OK',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            );
+                ],
+              );
+            },
+          ),
+          // Bottom Navigation
+        ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: Colors.deepPurple,
+          borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: (index) {
+            setState(() => _selectedIndex = index);
+            if (index == 1) {
+              Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const RequestPage()));
+            } else if (index == 2) {
+              Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
+            }
           },
-        );
-      },
-    );
-  }
-
-  // Function to show the confirmation card
-  void _triggerConfirmation(SportItem item) {
-    setState(() {
-      _selectedItem = item;
-      _showConfirmationCard = true;
-    });
-  }
-
-  // Function to hide the confirmation card (when 'No' or 'Confirm' is pressed)
-  void _hideConfirmation() {
-    setState(() {
-      _showConfirmationCard = false;
-      _selectedItem = null; // Clear selection
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: _items.length + (_showConfirmationCard ? 1 : 0),
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (_showConfirmationCard) {
-          if (index == 0) {
-            // Show the confirmation card as the first item
-            return ConfirmationCard(
-              onConfirm: () {
-                _showReturnDayDialog();
-              },
-              onNo: () {
-                _hideConfirmation();
-              },
-            );
-          }
-          // Adjust the index for the sport item list
-          final itemIndex = index - 1;
-          return SportItemCard(
-            item: _items[itemIndex],
-            onTap: () {
-              if (_items[itemIndex].status == ItemStatus.available) {
-                if (_hasActiveBorrow()) {
-                  _showBorrowLimitDialog();
-                } else {
-                  _triggerConfirmation(_items[itemIndex]);
-                }
-              }
-            },
-          );
-        } else {
-          // Show the list normally
-          return SportItemCard(
-            item: _items[index],
-            onTap: () {
-              if (_items[index].status == ItemStatus.available) {
-                if (_hasActiveBorrow()) {
-                  _showBorrowLimitDialog();
-                } else {
-                  _triggerConfirmation(_items[index]);
-                }
-              }
-            },
-          );
-        }
-      },
-    );
-  }
-}
-
-// ==========================================================
-// Helper Widgets (ItemCard and ConfirmationCard - remain the same)
-// ==========================================================
-
-// Widget for the item card
-class SportItemCard extends StatelessWidget {
-  final SportItem item;
-  final VoidCallback onTap;
-
-  const SportItemCard({super.key, required this.item, required this.onTap});
-
-  // Helper to get color based on status
-  Color _getStatusColor(ItemStatus status) {
-    switch (status) {
-      case ItemStatus.available:
-        return Colors.green.shade600;
-      case ItemStatus.disable:
-        return Colors.red.shade600;
-      case ItemStatus.borrowed:
-        return Colors.blue.shade600;
-      case ItemStatus.pending:
-        return Colors.yellow.shade700;
-    }
-  }
-
-  // Helper to get text based on status
-  String _getStatusText(ItemStatus status) {
-    switch (status) {
-      case ItemStatus.available:
-        return 'Available';
-      case ItemStatus.disable:
-        return 'Disable';
-      case ItemStatus.borrowed:
-        return 'Borrowed';
-      case ItemStatus.pending:
-        return 'Pending';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shadowColor: Colors.grey.withOpacity(0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16.0),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Row(
-            children: [
-              // Image/Icon
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12.0),
-                child: Container(
-                  width: 70,
-                  height: 70,
-                  color: Colors.grey[200],
-                  child: Icon(item.icon, size: 40, color: Colors.grey[600]),
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Name and Quantity
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      item.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: 50,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade400),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: Center(
-                        child: Text(
-                          item.quantity.toString(),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Status
-              Chip(
-                label: Text(
-                  _getStatusText(item.status),
-                  style: TextStyle(
-                    color: item.status == ItemStatus.pending
-                        ? Colors.black87
-                        : Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                backgroundColor: _getStatusColor(item.status),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Widget for the borrow confirmation card
-class ConfirmationCard extends StatelessWidget {
-  final VoidCallback onConfirm;
-  final VoidCallback onNo;
-
-  const ConfirmationCard({
-    super.key,
-    required this.onConfirm,
-    required this.onNo,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shadowColor: Colors.grey.withOpacity(0.3),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Do you confirm borrow (item at choose before)?',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton(
-                  onPressed: onNo,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                  ),
-                  child: const Text(
-                    'No',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: onConfirm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade600,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                  ),
-                  child: const Text(
-                    'Confirm',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
+          backgroundColor: Colors.deepPurple,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white70,
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), label: 'Requests'),
+            BottomNavigationBarItem(icon: Icon(Icons.calendar_today_outlined), label: 'History'),
           ],
         ),
       ),
     );
   }
+
+  // ===============================
+  // Header
+  // ===============================
+  Widget _buildHeader(String username) {
+    return Container(
+      color: Colors.deepPurple,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              if (showItemList)
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => setState(() => showItemList = false),
+                )
+              else
+                const Icon(Icons.home, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                showItemList ? selectedCategory : "Hi !!, $username",
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          GestureDetector(
+            onTap: () {},
+            child: const Icon(Icons.logout, color: Colors.white),
+          )
+        ],
+      ),
+    );
+  }
+
+  // ===============================
+  // Confirm Borrow Bar
+  // ===============================
+  Widget _buildConfirmBar() => Container(
+        color: Colors.white,
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          children: [
+            const Text(
+              'Do you confirm borrow (item at choose before)?',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton(
+                  onPressed: () => setState(() => showConfirmBar = false),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red, shape: const StadiumBorder()),
+                  child: const Text('No'),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() => showConfirmBar = false);
+                    Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const RequestPage()));
+                  },
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      shape: const StadiumBorder()),
+                  child: const Text('Confirm'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  // ===============================
+  // ===============================
+  Widget _buildCategoryList() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("What’s sport do you play??",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 10),
+          _buildLegend(),
+          const SizedBox(height: 20),
+          Column(
+            children: _items.map((item) {
+              return Card(
+                elevation: 3,
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                child: InkWell(
+                  onTap: item.status == ItemStatus.available
+                      ? () {
+                          setState(() {
+                            showItemList = true;
+                            selectedCategory = item.name;
+                          });
+                        }
+                      : null,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.asset(item.image,
+                              width: 80, height: 80, fit: BoxFit.cover),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.name,
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                width: 45,
+                                decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: Colors.grey.shade400),
+                                    borderRadius: BorderRadius.circular(8)),
+                                child: Center(
+                                  child: Text(item.quantity.toString(),
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: _getColor(item.status),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          child: Text(_getText(item.status),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          )
+        ],
+      ),
+    );
+  }
+
+  // ===============================
+  // ===============================
+  Widget _buildItemList() {
+    final category =
+        _items.firstWhere((e) => e.name == selectedCategory, orElse: () => _items[0]);
+    final subItems = category.subItems ?? [];
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: subItems.length,
+      itemBuilder: (context, i) {
+        final item = subItems[i];
+        final status = item['status'] as ItemStatus;
+        return Card(
+          margin: const EdgeInsets.only(bottom: 10),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            leading: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(item['image'],
+                  width: 60, height: 60, fit: BoxFit.cover),
+            ),
+            title: Text(item['name']),
+            trailing: GestureDetector(
+              onTap: status == ItemStatus.available ? _showReturnDialog : null,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _getColor(status),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _getText(status),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ===============================
+  // ===============================
+  Widget _buildLegend() => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2))
+            ]),
+        child: Column(
+          children: [
+            const Text("Sports Item status.",
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _dot("Available", Colors.green),
+                _dot("Disable", Colors.red),
+                _dot("Pending", Colors.yellow.shade700),
+                _dot("Borrowed", Colors.blue),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  Widget _dot(String text, Color color) => Row(
+        children: [
+          Container(
+              width: 14, height: 14, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 5),
+          Text(text, style: const TextStyle(fontSize: 13)),
+        ],
+      );
 }

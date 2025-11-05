@@ -11,7 +11,6 @@ SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
 
-
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -77,13 +76,17 @@ CREATE TABLE `borrow_request` (
   `request_status` ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending' COMMENT 'สถานะจาก lender',
   `return_status` ENUM('-', 'On time', 'Overdue') DEFAULT '-' COMMENT 'สถานะการคืน: - (ยังไม่คืน), On time (คืนตรงเวลา), Overdue (เลยเวลา)',
   `lender_id` smallint(10) DEFAULT NULL COMMENT 'FK to user.u_id (lender ที่อนุมัติ/ปฏิเสธ)',
+  `request_description` TEXT DEFAULT NULL COMMENT 'เหตุผลที่ lender ปฏิเสธ (เมื่อ status = Rejected)',
+  `staff_id` smallint(10) DEFAULT NULL COMMENT 'FK to user.u_id (staff ที่กดคืนของ)',
   PRIMARY KEY (`request_id`),
   KEY `student_id` (`student_id`),
   KEY `item_id` (`item_id`),
   KEY `lender_id` (`lender_id`),
+  KEY `staff_id` (`staff_id`),
   CONSTRAINT `borrow_request_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `user` (`u_id`),
   CONSTRAINT `borrow_request_ibfk_2` FOREIGN KEY (`item_id`) REFERENCES `sport_item` (`item_id`),
-  CONSTRAINT `borrow_request_ibfk_3` FOREIGN KEY (`lender_id`) REFERENCES `user` (`u_id`)
+  CONSTRAINT `borrow_request_ibfk_3` FOREIGN KEY (`lender_id`) REFERENCES `user` (`u_id`),
+  CONSTRAINT `borrow_request_ibfk_4` FOREIGN KEY (`staff_id`) REFERENCES `user` (`u_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -148,7 +151,9 @@ SELECT
     br.borrow_date,
     br.return_date,
     br.actual_return_date,
-    br.return_status
+    br.return_status,
+    br.request_description,
+    br.staff_id
 FROM borrow_request br
 JOIN sport_item si ON br.item_id = si.item_id
 JOIN sport_category sc ON si.category_id = sc.category_id
@@ -159,33 +164,33 @@ ORDER BY br.request_id DESC;
 -- Triggers
 -- --------------------------------------------------------
 
--- ลบตัวเดิมก่อนเพื่อป้องกันชื่อชน
+-- เคลียร์ตัวเก่าให้หมดก่อน (กันชื่อชน)
 DROP TRIGGER IF EXISTS after_borrow_request_insert;
+DROP TRIGGER IF EXISTS after_borrow_request_update;
 DROP TRIGGER IF EXISTS before_borrow_request_update;
 DROP TRIGGER IF EXISTS after_borrow_request_update_status;
 
 DELIMITER //
 
--- 1) เมื่อสร้างคำขอยืม ถ้าเป็น Pending ให้เปลี่ยน item เป็น Pending
+/* 1) INSERT: เมื่อสร้างคำขอยืม Pending → ตัวอุปกรณ์เป็น Pending */
 CREATE TRIGGER after_borrow_request_insert
 AFTER INSERT ON borrow_request
 FOR EACH ROW
 BEGIN
     IF NEW.request_status = 'Pending' THEN
-        UPDATE sport_item 
-        SET status = 'Pending'
-        WHERE item_id = NEW.item_id;
+        UPDATE sport_item
+           SET status = 'Pending'
+         WHERE item_id = NEW.item_id;
     END IF;
 END;
 //
 
--- 2) BEFORE UPDATE: ห้ามแก้ตาราง แต่ "อนุญาต" ให้ตั้งค่า NEW.*
---    ใช้คำนวณ return_status ทันทีที่มีการกรอก actual_return_date ครั้งแรก
+/* 2) BEFORE UPDATE: คำนวณ/ตั้งค่า NEW.return_status ตอนที่กรอก actual_return_date ครั้งแรก */
 CREATE TRIGGER before_borrow_request_update
 BEFORE UPDATE ON borrow_request
 FOR EACH ROW
 BEGIN
-    -- ตั้งค่า return_status เฉพาะตอนที่เริ่มมี actual_return_date (จาก NULL -> NOT NULL)
+    -- ให้ตั้งค่า return_status เฉพาะตอนที่เปลี่ยนจาก NULL -> มีค่าวันคืนจริงเท่านั้น
     IF NEW.actual_return_date IS NOT NULL AND OLD.actual_return_date IS NULL THEN
         IF NEW.actual_return_date <= NEW.return_date THEN
             SET NEW.return_status = 'On time';
@@ -196,37 +201,35 @@ BEGIN
 END;
 //
 
--- 3) AFTER UPDATE: ใช้สำหรับแก้สถานะอุปกรณ์ใน sport_item เท่านั้น
---    แยกเงื่อนไขชัดเจน: อนุมัติ/ปฏิเสธ และกรณีมีการคืนของจริง
+/* 3) AFTER UPDATE: เปลี่ยนสถานะใน sport_item ตามผลอนุมัติ/ปฏิเสธ และเมื่อคืนของจริง */
 CREATE TRIGGER after_borrow_request_update_status
 AFTER UPDATE ON borrow_request
 FOR EACH ROW
 BEGIN
-    -- เมื่ออนุมัติจาก Pending -> Borrowed
+    -- อนุมัติจาก Pending → อุปกรณ์เป็น Borrowed
     IF NEW.request_status = 'Approved' AND OLD.request_status = 'Pending' THEN
-        UPDATE sport_item 
-        SET status = 'Borrowed'
-        WHERE item_id = NEW.item_id;
+        UPDATE sport_item
+           SET status = 'Borrowed'
+         WHERE item_id = NEW.item_id;
     END IF;
 
-    -- เมื่อปฏิเสธจาก Pending -> กลับ Available
+    -- ปฏิเสธจาก Pending → อุปกรณ์กลับเป็น Available
     IF NEW.request_status = 'Rejected' AND OLD.request_status = 'Pending' THEN
-        UPDATE sport_item 
-        SET status = 'Available'
-        WHERE item_id = NEW.item_id;
+        UPDATE sport_item
+           SET status = 'Available'
+         WHERE item_id = NEW.item_id;
     END IF;
 
-    -- เมื่อลงวันคืนจริง (ครั้งแรก) -> ปล่อยของกลับเป็น Available
+    -- เมื่อลงวันคืนจริงครั้งแรก → อุปกรณ์กลับเป็น Available
     IF NEW.actual_return_date IS NOT NULL AND OLD.actual_return_date IS NULL THEN
-        UPDATE sport_item 
-        SET status = 'Available'
-        WHERE item_id = NEW.item_id;
+        UPDATE sport_item
+           SET status = 'Available'
+         WHERE item_id = NEW.item_id;
     END IF;
 END;
 //
 
 DELIMITER ;
-
 -- --------------------------------------------------------
 -- Function: สร้าง Item ID อัตโนมัติ
 -- --------------------------------------------------------
@@ -279,4 +282,3 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-

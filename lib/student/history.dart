@@ -1,237 +1,380 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// Redefine Status for this screen's context
-enum HistoryStatus { returned, overdue, lost }
+// --- Colors ---
+const Color primaryPurple = Color(0xFF5C3C8E);
+const Color statusApprovedColor = Color(0xFF4CAF50); // Green
+const Color statusRejectedColor = Color(0xFFB33939); // Dark Red
+const Color statusOverdueColor = Color(0xFFD9534F); // Red Text for Overdue
 
-class HistoryRecord {
-  final String name;
-  final String itemType;
+// --- Data Model สำหรับ History Item ---
+class HistoryItem {
+  final String itemName;
+  final String imagePath;
+  final String sport;
+  final String status;
   final String dateBorrowed;
-  final String dateReturned;
-  final String approver; // ผู้อนุมัติ
-  final String receiver; // ผู้รับคืน (ตอนคืนแล้ว)
-  final HistoryStatus status;
+  final String dateReturn;
+  final String returnStatus;
+  final String reason;
 
-  const HistoryRecord({
-    required this.name,
-    required this.itemType,
-    required this.dateBorrowed,
-    required this.dateReturned,
-    required this.approver,
-    required this.receiver,
+  HistoryItem({
+    required this.itemName,
+    required this.imagePath,
+    required this.sport,
     required this.status,
+    required this.dateBorrowed,
+    required this.dateReturn,
+    required this.returnStatus,
+    required this.reason,
   });
-}
 
-// --- CONST MOCK DATA (MOVED OUTSIDE CLASS) ---
-const List<HistoryRecord> mockHistory = [
-  HistoryRecord(
-    name: 'Badminton',
-    itemType: 'Badminton Racket',
-    dateBorrowed: '10 Oct 2568',
-    dateReturned: '11 Oct 2568',
-    approver: 'Admin A',
-    receiver: 'Staff 1',
-    status: HistoryStatus.returned,
-  ),
-  HistoryRecord(
-    name: 'Tennis',
-    itemType: 'Tennis Racket',
-    dateBorrowed: '08 Oct 2568',
-    dateReturned: '09 Oct 2568',
-    approver: 'Admin B',
-    receiver: 'Staff 2',
-    status: HistoryStatus.returned,
-  ),
-  HistoryRecord(
-    name: 'Futsal',
-    itemType: 'Futsal Ball',
-    dateBorrowed: '01 Sep 2568',
-    dateReturned: 'N/A', // ยังไม่คืน
-    approver: 'Admin C',
-    receiver: 'N/A',
-    status: HistoryStatus.overdue,
-  ),
-];
-// ---------------------------------------------
-
-class History extends StatelessWidget {
-  const History({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // Access the data using the top-level const variable
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: mockHistory.length,
-      itemBuilder: (context, index) {
-        final record = mockHistory[index];
-        // Use the new HistoryResultCard widget
-        return HistoryResultCard(record: record);
-      },
+  // Factory constructor for creating a HistoryItem from JSON
+  // *** [ปรับตรงนี้ตามโครงสร้าง JSON จริงจาก Backend ของคุณ] ***
+  factory HistoryItem.fromJson(Map<String, dynamic> json) {
+    return HistoryItem(
+      itemName: json['item_name'] ?? 'N/A', // ชื่อสินค้า
+      imagePath: 'assets/default_item.png', // ใช้รูป default ก่อน หรือดึง path รูปจริง
+      sport: json['sport'] ?? 'N/A', // กีฬา
+      status: json['status'] ?? 'N/A', // สถานะการยืม (Approved/Rejected)
+      dateBorrowed: json['date_borrowed'] ?? 'N/A',
+      dateReturn: json['date_return'] ?? 'N/A',
+      returnStatus: json['return_status'] ?? 'N/A', // สถานะการคืน (Overdue/On time/-)
+      reason: json['reason'] ?? '', // เหตุผล
     );
   }
 }
 
-// Helper for image URLs based on item name (for demonstration)
-String _getItemImageUrl(String name) {
-  switch (name) {
-    case 'Badminton':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Badminton';
-    case 'Tennis':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Tennis';
-    case 'Futsal':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Futsal';
-    default:
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Item';
-  }
+// ------------------------------------------------------------------
+// --- HISTORY SCREEN (STATEFUL) ---
+// ------------------------------------------------------------------
+
+class HistoryScreen extends StatefulWidget {
+  const HistoryScreen({super.key});
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class HistoryResultCard extends StatelessWidget {
-  final HistoryRecord record;
-  const HistoryResultCard({super.key, required this.record});
+class _HistoryScreenState extends State<HistoryScreen> {
+  List<HistoryItem> _historyList = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Function to get the status text (using simpler text for history)
-  String _getStatusText(HistoryStatus status) {
-    switch (status) {
-      case HistoryStatus.returned:
-        return 'Returned';
-      case HistoryStatus.overdue:
-        return 'Overdue';
-      case HistoryStatus.lost:
-        return 'Lost/Damaged';
-    }
+  // *** [ตั้งค่า IP และ Port ของ Backend] ***
+  final String _baseUrl = 'http://10.10.0.25:3000'; 
+  // สมมติว่า Route สำหรับ History คือ /api/user/history
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHistoryData();
   }
 
-  // Function to get the status color
-  Color _getStatusColor(HistoryStatus status) {
-    switch (status) {
-      case HistoryStatus.returned:
-        return Colors.green.shade600;
-      case HistoryStatus.overdue:
-        return Colors.orange.shade700;
-      case HistoryStatus.lost:
-        return Colors.red.shade600;
+  // --- ⚙️ ฟังก์ชันดึงข้อมูล History จาก API ---
+  Future<void> _fetchHistoryData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
+
+      if (token == null) {
+        _errorMessage = 'User not logged in. Token not found.';
+        // อาจจะต้องนำผู้ใช้ไปหน้า Login
+        if (mounted) Navigator.pushReplacementNamed(context, '/'); 
+        return;
+      }
+
+      final url = Uri.parse('$_baseUrl/api/history/user'); // *** [แก้ไข Route API ตามจริง] ***
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token', // ส่ง Token ไปกับ Header
+        },
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['history'] != null) {
+          // แปลง List ของ JSON เป็น List ของ HistoryItem
+          List<HistoryItem> fetchedList = (data['history'] as List)
+              .map((item) => HistoryItem.fromJson(item))
+              .toList();
+              
+          // [Logic: จัดกลุ่มรายการ]
+          // ถ้าต้องการให้มี 'History 2' คั่น, อาจจะต้องใช้ Logic จัดกลุ่มข้อมูลตรงนี้
+          // แต่ในโค้ดตัวอย่างนี้ จะแสดงรายการทั้งหมดเรียงต่อกัน
+          
+          setState(() {
+            _historyList = fetchedList;
+            _isLoading = false;
+          });
+        } else {
+          setState(() {
+            _errorMessage = data['message'] ?? 'Failed to load history data.';
+            _isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          _errorMessage = 'API Error: ${response.statusCode}';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Connection Error: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _getStatusColor(record.status);
-    final statusText = _getStatusText(record.status);
-
-    return Card(
-      elevation: 4,
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: primaryPurple,
+        automaticallyImplyLeading: false,
+        title: const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Item Image Placeholder
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12.0),
-                  child: Image.network(
-                    _getItemImageUrl(record.name),
-                    width: 70,
-                    height: 70,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 70,
-                      height: 70,
-                      color: Colors.grey[200],
-                      child: const Center(child: Text('Img')),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Item Name
-                Expanded(
-                  child: Text(
-                    record.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-                // Status Chip (Only show for non-returned items for visual simplicity)
-                if (record.status != HistoryStatus.returned)
-                  Chip(
-                    label: Text(
-                      statusText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    backgroundColor: statusColor,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                  ),
+                Icon(Icons.calendar_today, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('History', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
               ],
             ),
-            const Divider(height: 24, thickness: 1),
-            // Info Row: Item Type
-            _buildInfoRow('Item :', record.itemType),
-            // Info Row: Borrow Date
-            _buildInfoRow('Date Borrowed :', record.dateBorrowed),
-            // Info Row: Return Date
-            _buildInfoRow('Date Returned :', record.dateReturned),
-            // Info Row: Approver
-            _buildInfoRow('Approved by :', record.approver),
-            // Info Row: Receiver (Only show if returned)
-            if (record.status == HistoryStatus.returned)
-              _buildInfoRow('Received by :', record.receiver),
+            Icon(Icons.arrow_forward, color: Colors.white, size: 24),
+          ],
+        ),
+      ),
+      body: _buildBody(), // ใช้ _buildBody เพื่อแสดงสถานะ Loading/Error/Data
+      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+  
+  // --- Widget for Body Content (Loading/Error/Data) ---
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: primaryPurple));
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _fetchHistoryData,
+                child: const Text('Try Again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    if (_historyList.isEmpty) {
+      return const Center(child: Text('No history found.'));
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+      itemCount: _historyList.length,
+      itemBuilder: (context, index) {
+        final item = _historyList[index];
+        // Note: Logic เพื่อใส่ "History 2" header จะต้องซับซ้อนขึ้น 
+        // ในตัวอย่างนี้ ผมจะแสดงแค่ Card เรียงกันตามข้อมูลที่ดึงมา
+        return _buildHistoryCard(context, item: item);
+      },
+    );
+  }
+
+
+  // --- Widget for each History Card Item ---
+  Widget _buildHistoryCard(BuildContext context, {required HistoryItem item}) {
+    // กำหนดสีตามสถานะ
+    Color statusBgColor = Colors.transparent;
+    Color statusColor = Colors.black;
+    Color returnStatusColor = Colors.black;
+
+    if (item.status == 'Approved') {
+      statusBgColor = statusApprovedColor;
+      statusColor = Colors.white;
+    } else if (item.status == 'Rejected') {
+      statusBgColor = statusRejectedColor;
+      statusColor = Colors.white;
+    }
+
+    if (item.returnStatus == 'Overdue') {
+      returnStatusColor = statusOverdueColor; 
+    } else if (item.returnStatus == 'On time') {
+      returnStatusColor = statusApprovedColor; 
+    }
+
+    // -------------------------------------------------------------
+    // UI Card ตามดีไซน์ที่คุณต้องการ
+    // -------------------------------------------------------------
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 8.0),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image (Item Picture)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8.0),
+              child: Image.asset(
+                item.imagePath, // ใช้ path จากข้อมูลที่ดึงมา
+                width: 70,
+                height: 70,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: 70,
+                  height: 70,
+                  color: Colors.grey[300],
+                  child: const Icon(Icons.image, color: Colors.grey),
+                ),
+              ),
+            ),
+            const SizedBox(width: 15),
+            // Item Details (Right side)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Item Name
+                  Text(
+                    item.itemName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: primaryPurple,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 5),
+
+                  // Detail Rows
+                  _buildDetailRow('Sport :', item.sport),
+                  _buildDetailRow('Status :', item.status, isStatus: true, statusBgColor: statusBgColor, statusColor: statusColor),
+                  _buildDetailRow('Date Borrowed :', item.dateBorrowed),
+                  _buildDetailRow('Date Return :', item.dateReturn),
+                  _buildDetailRow('Return status :', item.returnStatus, isReturnStatus: true, returnStatusColor: returnStatusColor),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Reason Section
+                  const Text(
+                    'Reason',
+                    style: TextStyle(fontSize: 12, color: statusOverdueColor),
+                  ),
+                  TextField( // แสดง Reason ที่ดึงมา หรือเป็นช่องว่างให้กรอก
+                    controller: TextEditingController(text: item.reason),
+                    readOnly: true, // ทำให้เป็น Read Only ถ้าเป็นข้อมูล History
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: primaryPurple),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // Helper widget to build a labeled info row
-  Widget _buildInfoRow(String label, String value) {
+  // --- Widget for Detail Row (Label : Value) ---
+  Widget _buildDetailRow(
+    String label,
+    String value, {
+    bool isStatus = false,
+    Color statusBgColor = Colors.transparent,
+    Color statusColor = Colors.black,
+    bool isReturnStatus = false,
+    Color returnStatusColor = Colors.black,
+  }) {
+    const TextStyle labelStyle = TextStyle(fontSize: 13, color: Colors.black54);
+    const TextStyle valueStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w500);
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      padding: const EdgeInsets.only(bottom: 2.0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoLabel(label),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
+          SizedBox(
+            width: 110, // Fixed width for alignment
+            child: Text(label, style: labelStyle),
           ),
+          // Value or Status Badge
+          isStatus 
+              ? Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: statusBgColor,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : Text(
+                  value,
+                  style: isReturnStatus 
+                      ? valueStyle.copyWith(color: returnStatusColor, fontWeight: FontWeight.bold) 
+                      : valueStyle,
+                ),
         ],
       ),
     );
   }
 
-  // Helper widget for fixed width labels
-  Widget _buildInfoLabel(String label) {
-    return SizedBox(
-      width: 120, // Adjusted width for history details
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Colors.grey[700],
-        ),
+  // --- Bottom Navigation Bar ---
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      height: 60,
+      color: primaryPurple,
+      child: const Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          // Home
+          Icon(Icons.home, color: Colors.white70, size: 28),
+          // Notification
+          Icon(Icons.notifications, color: Colors.white70, size: 28),
+          // History (Active)
+          Icon(Icons.assignment, color: Colors.white, size: 28),
+        ],
       ),
     );
   }
