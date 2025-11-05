@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:project_mobile_app/lender/history.dart';
+import 'home.dart';
+import 'history.dart';
 
-// Redefine Status for this screen's context
 enum RequestStatus { pending, approved, rejected }
 
 class RequestItem {
   final String name;
-  final String dateRequested; // วันที่ยืม (Borrow Date)
-  final String timeRequested; // เวลาที่ยืม
-  final String returnOn; // วันที่คืน (Return Date)
+  final String dateRequested;
+  final String timeRequested;
+  final String returnOn;
   final RequestStatus status;
 
   const RequestItem({
@@ -19,15 +21,7 @@ class RequestItem {
   });
 }
 
-// --- CONST MOCK DATA (MOVED OUTSIDE CLASS) ---
 const List<RequestItem> mockRequests = [
-  //RequestItem(
-   // name: 'Volleyball',
-   // dateRequested: '20 Oct 2568',
-   // timeRequested: '17:00:50',
-    //returnOn: '21 Oct 2568',
-   // status: RequestStatus.approved,
- // ),
   RequestItem(
     name: 'Petanque',
     dateRequested: '25 Oct 2568',
@@ -35,35 +29,115 @@ const List<RequestItem> mockRequests = [
     returnOn: '26 Oct 2568',
     status: RequestStatus.pending,
   ),
-  //RequestItem(
-  //  name: 'Basketball',
-  //  dateRequested: '15 Oct 2568',
-  //  timeRequested: '09:00:00',
-   // returnOn: '18 Oct 2568',
-  //  status: RequestStatus.rejected,
-  //),
 ];
-// ---------------------------------------------
 
-class RequestPage extends StatelessWidget {
+class RequestPage extends StatefulWidget {
   const RequestPage({super.key});
 
   @override
+  State<RequestPage> createState() => _RequestPageState();
+}
+
+class _RequestPageState extends State<RequestPage> {
+  int _selectedIndex = 1;
+
+  void _onItemTapped(int index) {
+    if (index == _selectedIndex) return;
+
+    if (index == 0) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const HomePage(),
+          transitionDuration: Duration.zero,
+        ),
+      );
+    } else if (index == 2) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const History(),
+          transitionDuration: Duration.zero,
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Access the data using the top-level const variable
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: mockRequests.length,
-      itemBuilder: (context, index) {
-        final item = mockRequests[index];
-        // Use the new RequestResultCard widget for the detailed view
-        return RequestResultCard(item: item);
-      },
+    const purpleColor = Color(0xFF673AB7); // สีเดียวกับในภาพ
+
+    return Scaffold(
+      backgroundColor: Colors.grey[50],
+
+      appBar: AppBar(
+        backgroundColor: purpleColor,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: const [
+            Icon(
+              Icons.info_outline_rounded,
+              color: Colors.white,
+              size: 26,
+            ),
+            SizedBox(width: 8),
+            Text(
+              'Request Result',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_outlined, color: Colors.white),
+            onPressed: () {
+              // เมื่อกด logout ให้กลับไปหน้า login
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+          ),
+        ],
+      ),
+
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: mockRequests.length,
+        itemBuilder: (context, index) {
+          final item = mockRequests[index];
+          return RequestResultCard(item: item);
+        },
+      ),
+
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        backgroundColor: purpleColor,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
+        onTap: _onItemTapped,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_outlined),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today_outlined),
+            label: '',
+          ),
+        ],
+      ),
     );
   }
 }
 
-// Helper for image URLs based on item name (for demonstration)
+// ================= Helper =================
 String _getItemImageUrl(String name) {
   switch (name) {
     case 'Volleyball':
@@ -73,15 +147,15 @@ String _getItemImageUrl(String name) {
     case 'Basketball':
       return 'assets/images/basketball.png';
     default:
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Item';
+      return 'assets/images/default.png';
   }
 }
 
+// ================= Request Card =================
 class RequestResultCard extends StatelessWidget {
   final RequestItem item;
   const RequestResultCard({super.key, required this.item});
 
-  // Function to get the status background color
   Color _getStatusColor(RequestStatus status) {
     switch (status) {
       case RequestStatus.pending:
@@ -93,7 +167,6 @@ class RequestResultCard extends StatelessWidget {
     }
   }
 
-  // Function to get the status text
   String _getStatusText(RequestStatus status) {
     switch (status) {
       case RequestStatus.pending:
@@ -120,9 +193,7 @@ class RequestResultCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Item Image Placeholder
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12.0),
                   child: Image.asset(
@@ -130,16 +201,9 @@ class RequestResultCard extends StatelessWidget {
                     width: 70,
                     height: 70,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      width: 70,
-                      height: 70,
-                      color: Colors.grey[200],
-                      child: const Center(child: Text('Img')),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Item Name
                 Expanded(
                   child: Text(
                     item.name,
@@ -153,22 +217,14 @@ class RequestResultCard extends StatelessWidget {
               ],
             ),
             const Divider(height: 24, thickness: 1),
-            // Info Row: Item Type
             _buildInfoRow('Sport :', item.name),
-            // Info Row: Borrow Date and Time (รวมกันตามภาพ)
-            _buildInfoRow('Borrow :', '${item.dateRequested}'),
-            _buildInfoRow(
-              '',
-              item.timeRequested,
-            ), // Displaying time on its own line
-            // Info Row: Return Date
+            _buildInfoRow('Borrow :', item.dateRequested),
+            _buildInfoRow('', item.timeRequested),
             _buildInfoRow('Date return :', item.returnOn),
-            // Info Row: Status (Chip)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildInfoLabel('Status :'),
-                // Status Chip (Aligned right)
                 Chip(
                   label: Text(
                     statusText,
@@ -181,56 +237,45 @@ class RequestResultCard extends StatelessWidget {
                     ),
                   ),
                   backgroundColor: statusColor,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
                 ),
               ],
             ),
-            // *** REMOVED: Cancel button is removed from here ***
           ],
         ),
       ),
     );
   }
 
-  // Helper widget to build a labeled info row
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoLabel(label),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
+  Widget _buildInfoRow(String label, String value) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInfoLabel(label),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Helper widget for fixed width labels
-  Widget _buildInfoLabel(String label) {
-    return SizedBox(
-      width: 100, // Fixed width for alignment
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Colors.grey[700],
+          ],
         ),
-      ),
-    );
-  }
+      );
+
+  Widget _buildInfoLabel(String label) => SizedBox(
+        width: 100,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+      );
 }

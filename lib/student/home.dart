@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:project_mobile_app/lender/history.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'request.dart';
 import 'history.dart';
@@ -176,7 +177,6 @@ class _HomePageState extends State<HomePage> {
               );
             },
           ),
-          // Bottom Navigation
         ],
       ),
       bottomNavigationBar: Container(
@@ -191,10 +191,22 @@ class _HomePageState extends State<HomePage> {
             setState(() => _selectedIndex = index);
             if (index == 1) {
               Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const RequestPage()));
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) => const RequestPage(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             } else if (index == 2) {
               Navigator.push(
-                  context, MaterialPageRoute(builder: (_) => const HistoryScreen()));
+                context,
+                PageRouteBuilder(
+                  pageBuilder: (_, __, ___) => const History(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
+              );
             }
           },
           backgroundColor: Colors.deepPurple,
@@ -203,9 +215,12 @@ class _HomePageState extends State<HomePage> {
           showSelectedLabels: false,
           showUnselectedLabels: false,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), label: 'Requests'),
-            BottomNavigationBarItem(icon: Icon(Icons.calendar_today_outlined), label: 'History'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined), label: 'Home'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.notifications_outlined), label: 'Requests'),
+            BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_today_outlined), label: 'History'),
           ],
         ),
       ),
@@ -240,9 +255,16 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           GestureDetector(
-            onTap: () {},
-            child: const Icon(Icons.logout, color: Colors.white),
-          )
+  onTap: () async {
+    // ล้างข้อมูลใน SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    // กลับไปหน้า Login (ลบหน้าเก่าทั้งหมดออกจาก stack)
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+  },
+  child: const Icon(Icons.logout, color: Colors.white),
+)
         ],
       ),
     );
@@ -268,15 +290,22 @@ class _HomePageState extends State<HomePage> {
                 ElevatedButton(
                   onPressed: () => setState(() => showConfirmBar = false),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red, shape: const StadiumBorder()),
+                      backgroundColor: Colors.red,
+                      shape: const StadiumBorder()),
                   child: const Text('No'),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
                   onPressed: () {
                     setState(() => showConfirmBar = false);
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const RequestPage()));
+                    Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const RequestPage(),
+                        transitionDuration: Duration.zero,
+                        reverseTransitionDuration: Duration.zero,
+                      ),
+                    );
                   },
                   style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
@@ -289,7 +318,6 @@ class _HomePageState extends State<HomePage> {
         ),
       );
 
-  // ===============================
   // ===============================
   Widget _buildCategoryList() {
     return SingleChildScrollView(
@@ -378,10 +406,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ===============================
-  // ===============================
   Widget _buildItemList() {
-    final category =
-        _items.firstWhere((e) => e.name == selectedCategory, orElse: () => _items[0]);
+    final category = _items.firstWhere(
+        (e) => e.name == selectedCategory,
+        orElse: () => _items[0]);
     final subItems = category.subItems ?? [];
     return ListView.builder(
       padding: const EdgeInsets.all(12),
@@ -423,7 +451,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   // ===============================
-  // ===============================
   Widget _buildLegend() => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -456,7 +483,10 @@ class _HomePageState extends State<HomePage> {
   Widget _dot(String text, Color color) => Row(
         children: [
           Container(
-              width: 14, height: 14, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              width: 14,
+              height: 14,
+              decoration:
+                  BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 5),
           Text(text, style: const TextStyle(fontSize: 13)),
         ],
