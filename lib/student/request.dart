@@ -21,27 +21,27 @@ class RequestItem {
 
 // --- CONST MOCK DATA (MOVED OUTSIDE CLASS) ---
 const List<RequestItem> mockRequests = [
-  RequestItem(
-    name: 'Volleyball',
-    dateRequested: '20 Oct 2568',
-    timeRequested: '17:00:50',
-    returnOn: 'Tomorrow',
-    status: RequestStatus.approved,
-  ),
+  //RequestItem(
+   // name: 'Volleyball',
+   // dateRequested: '20 Oct 2568',
+   // timeRequested: '17:00:50',
+    //returnOn: '21 Oct 2568',
+   // status: RequestStatus.approved,
+ // ),
   RequestItem(
     name: 'Petanque',
     dateRequested: '25 Oct 2568',
     timeRequested: '10:30:00',
-    returnOn: '28 Oct 2568',
+    returnOn: '26 Oct 2568',
     status: RequestStatus.pending,
   ),
-  RequestItem(
-    name: 'Basketball',
-    dateRequested: '15 Oct 2568',
-    timeRequested: '09:00:00',
-    returnOn: '18 Oct 2568',
-    status: RequestStatus.rejected,
-  ),
+  //RequestItem(
+  //  name: 'Basketball',
+  //  dateRequested: '15 Oct 2568',
+  //  timeRequested: '09:00:00',
+   // returnOn: '18 Oct 2568',
+  //  status: RequestStatus.rejected,
+  //),
 ];
 // ---------------------------------------------
 
@@ -67,11 +67,11 @@ class RequestPage extends StatelessWidget {
 String _getItemImageUrl(String name) {
   switch (name) {
     case 'Volleyball':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Volley';
+      return 'assets/images/volleyball.png';
     case 'Petanque':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=P';
+      return 'assets/images/petanque.png';
     case 'Basketball':
-      return 'https://placehold.co/70x70/F2F2F2/000000?text=Basket';
+      return 'assets/images/basketball.png';
     default:
       return 'https://placehold.co/70x70/F2F2F2/000000?text=Item';
   }
@@ -125,7 +125,7 @@ class RequestResultCard extends StatelessWidget {
                 // Item Image Placeholder
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12.0),
-                  child: Image.network(
+                  child: Image.asset(
                     _getItemImageUrl(item.name),
                     width: 70,
                     height: 70,
@@ -154,7 +154,7 @@ class RequestResultCard extends StatelessWidget {
             ),
             const Divider(height: 24, thickness: 1),
             // Info Row: Item Type
-            _buildInfoRow('Item :', item.name),
+            _buildInfoRow('Sport :', item.name),
             // Info Row: Borrow Date and Time (รวมกันตามภาพ)
             _buildInfoRow('Borrow :', '${item.dateRequested}'),
             _buildInfoRow(
@@ -162,7 +162,7 @@ class RequestResultCard extends StatelessWidget {
               item.timeRequested,
             ), // Displaying time on its own line
             // Info Row: Return Date
-            _buildInfoRow('Return on :', item.returnOn),
+            _buildInfoRow('Date return :', item.returnOn),
             // Info Row: Status (Chip)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
