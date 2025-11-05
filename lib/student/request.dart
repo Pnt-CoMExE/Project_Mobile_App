@@ -1,36 +1,54 @@
 import 'package:flutter/material.dart';
-import 'package:project_mobile_app/lender/history.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'history.dart';
 
-enum RequestStatus { pending, approved, rejected }
+// [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
+const String _apiBaseUrl = 'http://192.168.1.186:3000/api/sport';
+// [FIX] เพิ่ม Base URL สำหรับรูปภาพ (ไม่มี /api/sport)
+const String _imageBaseUrl = 'http://192.168.1.186:3000/';
 
+// =======================================
+// [NEW] Data Model (สำหรับ request_result_view)
+// =======================================
 class RequestItem {
-  final String name;
-  final String dateRequested;
-  final String timeRequested;
-  final String returnOn;
-  final RequestStatus status;
+  final int requestId;
+  final String itemName;
+  final String categoryName;
+  final String itemImage;
+  final DateTime borrowDate;
+  final DateTime returnDate;
+  final String requestStatus;
 
-  const RequestItem({
-    required this.name,
-    required this.dateRequested,
-    required this.timeRequested,
-    required this.returnOn,
-    required this.status,
+  RequestItem({
+    required this.requestId,
+    required this.itemName,
+    required this.categoryName,
+    required this.itemImage,
+    required this.borrowDate,
+    required this.returnDate,
+    required this.requestStatus,
   });
+
+  factory RequestItem.fromJson(Map<String, dynamic> json) {
+    return RequestItem(
+      // [FIX] แปลง String (INT) เป็น int
+      requestId: int.parse(json['request_id'].toString()),
+      itemName: json['item_name'],
+      categoryName: json['category_name'],
+      itemImage: json['item_image'],
+      borrowDate: DateTime.parse(json['borrow_date']),
+      returnDate: DateTime.parse(json['return_date']),
+      requestStatus: json['request_status'],
+    );
+  }
 }
 
-const List<RequestItem> mockRequests = [
-  RequestItem(
-    name: 'Petanque',
-    dateRequested: '25 Oct 2568',
-    timeRequested: '10:30:00',
-    returnOn: '26 Oct 2568',
-    status: RequestStatus.pending,
-  ),
-];
-
+// =======================================
+// Main Request Page
+// =======================================
 class RequestPage extends StatefulWidget {
   const RequestPage({super.key});
 
@@ -39,11 +57,58 @@ class RequestPage extends StatefulWidget {
 }
 
 class _RequestPageState extends State<RequestPage> {
-  int _selectedIndex = 1;
+  final int _selectedIndex = 1;
+  bool _isLoading = true;
+  List<RequestItem> _requestItems = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _fetchRequests();
+  }
+
+  Future<void> _fetchRequests() async {
+    final prefs = await SharedPreferences.getInstance();
+    final studentId = prefs.getInt('u_id');
+
+    if (studentId == null || studentId == 0) {
+      _showErrorSnackBar("User not logged in.");
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/requests/$studentId'),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body)['data'] as List;
+        setState(() {
+          _requestItems = data
+              .map((item) => RequestItem.fromJson(item))
+              .toList();
+          _isLoading = false;
+        });
+      } else {
+        _showErrorSnackBar('Failed to load requests');
+      }
+    } catch (e) {
+      _showErrorSnackBar('Error: ${e.toString()}');
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  // =======================================
+  // Navigation & Dialogs
+  // =======================================
   void _onItemTapped(int index) {
     if (index == _selectedIndex) return;
-
     if (index == 0) {
       Navigator.pushReplacement(
         context,
@@ -63,24 +128,98 @@ class _RequestPageState extends State<RequestPage> {
     }
   }
 
+  Future<void> _showLogoutConfirmDialog() async {
+    // ... (โค้ด Dialog ยืนยัน Logout ของคุณ) ...
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.0),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.white,
+          child: Container(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  'Logout Confirm',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: Colors.deepPurple[700],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Are you sure to Logout',
+                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.black54,
+                  size: 50,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: const Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30.0),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 30,
+                      vertical: 12,
+                    ),
+                  ),
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.clear();
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // =======================================
+  // UI Build
+  // =======================================
   @override
   Widget build(BuildContext context) {
-    const purpleColor = Color(0xFF673AB7); // สีเดียวกับในภาพ
+    const purpleColor = Colors.deepPurple;
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-
+      backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
         backgroundColor: purpleColor,
         automaticallyImplyLeading: false,
         title: Row(
           children: const [
-            Icon(
-              Icons.info_outline_rounded,
-              color: Colors.white,
-              size: 26,
-            ),
-            SizedBox(width: 8),
+            Icon(Icons.notifications_outlined, color: Colors.white, size: 28),
+            SizedBox(width: 10),
             Text(
               'Request Result',
               style: TextStyle(
@@ -93,95 +232,76 @@ class _RequestPageState extends State<RequestPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_outlined, color: Colors.white),
-            onPressed: () {
-              // เมื่อกด logout ให้กลับไปหน้า login
-              Navigator.pushReplacementNamed(context, '/login');
-            },
+            onPressed: _showLogoutConfirmDialog,
           ),
         ],
       ),
 
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: mockRequests.length,
-        itemBuilder: (context, index) {
-          final item = mockRequests[index];
-          return RequestResultCard(item: item);
-        },
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _requestItems.isEmpty
+          ? const Center(
+              child: Text(
+                'No pending requests.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: _requestItems.length,
+              itemBuilder: (context, index) {
+                final item = _requestItems[index];
+                return _buildRequestCard(item);
+              },
+            ),
 
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        backgroundColor: purpleColor,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-        onTap: _onItemTapped,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: '',
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: purpleColor,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined),
-            label: '',
+        ),
+        child: SafeArea(
+          bottom: true,
+          child: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.white70,
+            showSelectedLabels: false,
+            showUnselectedLabels: false,
+            onTap: _onItemTapped,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_outlined),
+                label: '',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.notifications_outlined),
+                label: '',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.calendar_today_outlined),
+                label: '',
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            label: '',
-          ),
-        ],
+        ),
       ),
     );
   }
-}
 
-// ================= Helper =================
-String _getItemImageUrl(String name) {
-  switch (name) {
-    case 'Volleyball':
-      return 'assets/images/volleyball.png';
-    case 'Petanque':
-      return 'assets/images/petanque.png';
-    case 'Basketball':
-      return 'assets/images/basketball.png';
-    default:
-      return 'assets/images/default.png';
-  }
-}
-
-// ================= Request Card =================
-class RequestResultCard extends StatelessWidget {
-  final RequestItem item;
-  const RequestResultCard({super.key, required this.item});
-
-  Color _getStatusColor(RequestStatus status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return Colors.yellow.shade700;
-      case RequestStatus.approved:
-        return Colors.green.shade600;
-      case RequestStatus.rejected:
-        return Colors.red.shade600;
-    }
-  }
-
-  String _getStatusText(RequestStatus status) {
-    switch (status) {
-      case RequestStatus.pending:
-        return 'Pending';
-      case RequestStatus.approved:
-        return 'Approved';
-      case RequestStatus.rejected:
-        return 'Rejected';
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final statusColor = _getStatusColor(item.status);
-    final statusText = _getStatusText(item.status);
+  // =======================================
+  // [NEW] Widget สร้าง Card (ตามดีไซน์เดิม)
+  // =======================================
+  Widget _buildRequestCard(RequestItem item) {
+    final borrowDateStr =
+        "${item.borrowDate.day}/${item.borrowDate.month}/${item.borrowDate.year}";
+    final returnDateStr =
+        "${item.returnDate.day}/${item.returnDate.month}/${item.returnDate.year}";
 
     return Card(
       elevation: 4,
@@ -196,17 +316,24 @@ class RequestResultCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12.0),
-                  child: Image.asset(
-                    _getItemImageUrl(item.name),
+                  child: Image.network(
+                    // [FIX] ต่อ Base URL
+                    _imageBaseUrl + item.itemImage,
                     width: 70,
                     height: 70,
                     fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => Container(
+                      width: 70,
+                      height: 70,
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.image_not_supported),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
-                    item.name,
+                    item.itemName,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -217,26 +344,23 @@ class RequestResultCard extends StatelessWidget {
               ],
             ),
             const Divider(height: 24, thickness: 1),
-            _buildInfoRow('Sport :', item.name),
-            _buildInfoRow('Borrow :', item.dateRequested),
-            _buildInfoRow('', item.timeRequested),
-            _buildInfoRow('Date return :', item.returnOn),
+            _buildInfoRow('Sport :', item.categoryName),
+            _buildInfoRow('Borrow :', borrowDateStr),
+            _buildInfoRow('Date return :', returnDateStr),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildInfoLabel('Status :'),
                 Chip(
                   label: Text(
-                    statusText,
-                    style: TextStyle(
-                      color: item.status == RequestStatus.pending
-                          ? Colors.black87
-                          : Colors.white,
+                    item.requestStatus, // 'Pending'
+                    style: const TextStyle(
+                      color: Colors.black87,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
                   ),
-                  backgroundColor: statusColor,
+                  backgroundColor: Colors.yellow.shade700, // สี Pending
                 ),
               ],
             ),
@@ -247,35 +371,35 @@ class RequestResultCard extends StatelessWidget {
   }
 
   Widget _buildInfoRow(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildInfoLabel(label),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
+    padding: const EdgeInsets.symmetric(vertical: 4.0),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildInfoLabel(label),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
             ),
-          ],
-        ),
-      );
-
-  Widget _buildInfoLabel(String label) => SizedBox(
-        width: 100,
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey[700],
           ),
         ),
-      );
+      ],
+    ),
+  );
+
+  Widget _buildInfoLabel(String label) => SizedBox(
+    width: 100,
+    child: Text(
+      label,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: Colors.grey[700],
+      ),
+    ),
+  );
 }

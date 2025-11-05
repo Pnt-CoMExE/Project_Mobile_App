@@ -33,13 +33,14 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      final url = Uri.parse('http://10.10.0.25:3000/api/auth/login');
+      final url = Uri.parse('http://192.168.1.186:3000/api/auth/login');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'username': _usernameController.text.trim(),
-          'password': _passwordController.text.trim(),
+          // [FIX 1] แก้ Key ให้ตรงกับฐานข้อมูล
+          'u_username': _usernameController.text.trim(),
+          'u_password': _passwordController.text.trim(),
         }),
       );
 
@@ -49,25 +50,28 @@ class _LoginPageState extends State<LoginPage> {
 
       if (response.statusCode == 200 && data['success'] == true) {
         final prefs = await SharedPreferences.getInstance();
+
         await prefs.setString('token', data['user']['token']);
         int role = data['user']['u_role'];
         await prefs.setInt('role', role);
+        String username = data['user']['u_username'];
+        await prefs.setString('u_username', username);
+
+        // --- ⭐️ เพิ่มบรรทัดนี้ ⭐️ ---
+        int studentId = data['user']['u_id'];
+        await prefs.setInt('u_id', studentId);
+        // --- ⭐️ สิ้นสุดการเพิ่ม ⭐️ ---
 
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('✅ Login successful!')));
-
         if (!mounted) return;
 
-        // [แก้ไข]!!!: เปลี่ยนชื่อ Route ให้ตรงกับ main.dart
         if (role == 1) {
-          // 1 = student
           Navigator.pushReplacementNamed(context, '/student/home');
         } else if (role == 2) {
-          // 2 = staff
           Navigator.pushReplacementNamed(context, '/staff/dashboard');
         } else if (role == 3) {
-          // 3 = lender
           Navigator.pushReplacementNamed(context, '/lender/dashboard');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -77,6 +81,7 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } else {
+        // ถ้า Server ตอบกลับมาว่า "Missing fields" หรือ "Invalid credentials"
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('❌ ${data['message']}')));
@@ -96,8 +101,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // [หมายเหตุ] UI ส่วนนี้คือดีไซน์เดิมที่เราทำไว้
-    // (หากไฟล์ login.dart ของคุณมี UI ของตัวเอง ให้ใช้ส่วนนั้นแทน)
+    // [หมายเหตุ] UI ส่วนนี้คือดีไซน์เดิมของคุณ (ผมไม่ได้แก้ไข)
     return Scaffold(
       body: Container(
         width: double.infinity,

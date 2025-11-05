@@ -1,3 +1,4 @@
 {
-    "cmake.sourceDirectory": "C:/App/MB project/Project_Mobile_App/windows"
+    "cmake.sourceDirectory": "C:/App/MB project/Project_Mobile_App/windows",
+    "java.configuration.updateBuildConfiguration": "interactive"
 }

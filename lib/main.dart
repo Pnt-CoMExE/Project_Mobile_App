@@ -19,6 +19,23 @@ class SportBorrowingApp extends StatelessWidget {
     return MaterialApp(
       title: 'Sport Borrowing',
       debugShowCheckedModeBanner: false,
+
+      // [FIX] เพิ่มการตั้งค่า Theme ตรงนี้
+      theme: ThemeData(
+        // 1. กำหนดสีพื้นหลังหลักของทุก Scaffold (ทุกหน้า)
+        scaffoldBackgroundColor: const Color(0xFFF3F4F6),
+
+        // 2. (แนะนำ) กำหนดสี AppBar หลักให้เป็นสีม่วง
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white, // สีตัวอักษรและไอคอนบน AppBar
+        ),
+
+        // 3. บังคับให้แอปใช้ Light Theme (ป้องกัน Dark Mode อัตโนมัติ)
+        brightness: Brightness.light,
+      ),
+
+      // [END FIX]
       initialRoute: '/',
       routes: {
         '/': (context) => const WelcomePage(),

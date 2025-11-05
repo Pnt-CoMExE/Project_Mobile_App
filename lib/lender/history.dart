@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 // [REMOVED] Imports for Ldashboard and Approve (no longer needed here)
 
 class History extends StatefulWidget {
-  const History({Key? key}) : super(key: key);
+  const History({super.key});
 
   @override
   State<History> createState() => _HistoryPageState();
