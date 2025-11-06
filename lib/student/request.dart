@@ -6,9 +6,9 @@ import 'home.dart';
 import 'history.dart';
 
 // [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://192.168.1.186:3000/api/sport';
+const String _apiBaseUrl = 'http://172.28.148.59:3000/api/sport';
 // [FIX] เพิ่ม Base URL สำหรับรูปภาพ (ไม่มี /api/sport)
-const String _imageBaseUrl = 'http://192.168.1.186:3000/';
+const String _imageBaseUrl = 'http://172.28.148.59:3000/';
 
 // =======================================
 // [NEW] Data Model (สำหรับ request_result_view)
