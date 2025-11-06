@@ -505,8 +505,9 @@ class _HomePageState extends State<HomePage> {
                     ? SystemMouseCursors.click
                     : SystemMouseCursors.basic,
                 onEnter: (_) {
-                  if (isClickable)
+                  if (isClickable) {
                     setState(() => _hoveredCategoryIndex = index);
+                  }
                 },
                 onExit: (_) {
                   if (isClickable) setState(() => _hoveredCategoryIndex = null);
