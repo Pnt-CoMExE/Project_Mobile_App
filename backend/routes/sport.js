@@ -99,7 +99,7 @@ router.post("/borrow/request", async (req, res) => {
     // --- [FIX] ตรวจสอบการยืมซ้ำซ้อน ---------------------
     const today = new Date().toISOString().split('T')[0];
     const [existingRequests] = await pool.query(
-      "SELECT COUNT(*) AS count FROM borrow_request WHERE student_id = ? AND borrow_date = ?",
+      "SELECT COUNT(*) AS count FROM borrow_request WHERE request_status = 'pending' AND student_id = ? AND borrow_date = ?",
       [student_id, today]
     );
 
