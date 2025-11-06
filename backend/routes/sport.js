@@ -4,10 +4,45 @@ import pool from "../db.js";
 
 const router = express.Router();
 
-// 1. GET: ดึง Category ทั้งหมดสำหรับหน้า Home (เหมือนเดิม)
+// 1. GET: ดึง Category (หน้า Home)
+// [FIX] แก้ไขให้รับ studentId และใช้ SQL query ใหม่
 router.get("/categories", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM category_status_view");
+    const { studentId } = req.query; // รับ studentId จาก app
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: "Missing studentId" });
+    }
+
+    // [FIX] ใช้ SQL ใหม่ที่ JOIN เพื่อตรวจสอบสถานะ Pending ของ "ฉัน"
+    const [rows] = await pool.query(
+      `SELECT 
+          sc.category_id,
+          sc.category_name,
+          sc.category_image,
+          SUM(CASE WHEN si.status = 'Available' THEN 1 ELSE 0 END) AS available_count,
+          CASE
+              -- 1. ถ้ามี 'Available' = 'Available'
+              WHEN SUM(CASE WHEN si.status = 'Available' THEN 1 ELSE 0 END) > 0 THEN 'Available'
+              
+              -- 2. ถ้าไม่มี 'Available' แต่มี 'Pending' โดย "ฉัน" = 'Pending'
+              WHEN SUM(CASE WHEN si.status = 'Pending' AND br.student_id = ? THEN 1 ELSE 0 END) > 0 
+                   AND SUM(CASE WHEN si.status = 'Available' THEN 1 ELSE 0 END) = 0 THEN 'Pending'
+              
+              -- 3. ถ้าไม่มี 'Available' หรือ 'Pending โดยฉัน' แต่มี 'Borrowed' = 'Borrowed'
+              WHEN SUM(CASE WHEN si.status = 'Borrowed' THEN 1 ELSE 0 END) > 0 
+                   AND SUM(CASE WHEN si.status IN ('Available') THEN 1 ELSE 0 END) = 0 
+                   AND SUM(CASE WHEN si.status = 'Pending' AND br.student_id = ? THEN 1 ELSE 0 END) = 0 THEN 'Borrowed'
+              
+              -- 4. นอกนั้น (เช่น Pending โดยคนอื่น, Disable ล้วน, หรือของหมด) = 'Disable'
+              ELSE 'Disable'
+          END AS category_status
+      FROM sport_category sc
+      LEFT JOIN sport_item si ON sc.category_id = si.category_id
+      LEFT JOIN borrow_request br ON si.item_id = br.item_id AND br.request_status = 'Pending'
+      GROUP BY sc.category_id, sc.category_name, sc.category_image`,
+      [studentId, studentId] // ส่ง studentId เข้า SQL 2 ครั้ง
+    );
+    
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error(err);
@@ -15,14 +50,35 @@ router.get("/categories", async (req, res) => {
   }
 });
 
-// 2. GET: ดึง Item ทั้งหมดใน Category ที่เลือก (เหมือนเดิม)
+// 2. GET: ดึง Item (หน้ารายละเอียด)
+// [FIX] แก้ไขให้รับ studentId และใช้ SQL query ใหม่
 router.get("/items/:categoryId", async (req, res) => {
   try {
     const { categoryId } = req.params;
+    const { studentId } = req.query; // รับ studentId จาก app
+    if (!studentId) {
+      return res.status(400).json({ success: false, message: "Missing studentId" });
+    }
+
+    // [FIX] ใช้ SQL ใหม่ที่ JOIN และมี CASE
     const [rows] = await pool.query(
-      "SELECT * FROM sport_item WHERE category_id = ?",
-      [categoryId]
+      `SELECT 
+        si.item_id, 
+        si.category_id, 
+        si.item_name, 
+        si.item_image, 
+        -- Logic: ถ้า 'Pending' โดยคนอื่น ให้ส่ง 'Disable' กลับไปแทน
+        CASE 
+          WHEN si.status = 'Pending' AND br.student_id = ? THEN 'Pending'
+          WHEN si.status = 'Pending' AND br.student_id != ? THEN 'Disable'
+          ELSE si.status
+        END AS status
+      FROM sport_item si
+      LEFT JOIN borrow_request br ON si.item_id = br.item_id AND br.request_status = 'Pending'
+      WHERE si.category_id = ?`,
+      [studentId, studentId, categoryId] // ส่ง studentId 2 ครั้ง, categoryId 1 ครั้ง
     );
+    
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error(err);
@@ -30,7 +86,8 @@ router.get("/items/:categoryId", async (req, res) => {
   }
 });
 
-// 3. POST: สร้างคำขอยืมใหม่ (Borrow Request)
+
+// 3. POST: สร้างคำขอยืมใหม่ (Borrow Request) - (โค้ดเดิมที่แก้แล้ว)
 router.post("/borrow/request", async (req, res) => {
   const { student_id, item_id, return_date } = req.body;
 
@@ -39,34 +96,26 @@ router.post("/borrow/request", async (req, res) => {
   }
 
   try {
-    // --- [FIX] START: ตรวจสอบการยืมซ้ำซ้อน ---------------------
-    
-    // 1. หาวันที่ปัจจุบัน (YYYY-MM-DD)
+    // --- [FIX] ตรวจสอบการยืมซ้ำซ้อน ---------------------
     const today = new Date().toISOString().split('T')[0];
-
-    // 2. ค้นหาว่า student คนนี้ มีคำขอ (ไม่ว่าจะสถานะใด) ในวันนี้แล้วหรือยัง
     const [existingRequests] = await pool.query(
       "SELECT COUNT(*) AS count FROM borrow_request WHERE student_id = ? AND borrow_date = ?",
       [student_id, today]
     );
 
-    // 3. ถ้ามี (count > 0) ให้ส่ง Error กลับไป
     if (existingRequests[0].count > 0) {
-      return res.status(409).json({ // 409 Conflict
+      return res.status(409).json({ 
         success: false, 
-        message: "You can only make one borrow request per day." // ⬅️ ข้อความนี้จะเด้งในแอป
+        message: "You can only make one borrow request per day."
       });
     }
     // --- [FIX] END ------------------------------------------
 
-
-    // 4. ถ้าไม่ซ้ำ (count == 0) ให้ดำเนินการ INSERT ตามปกติ
-    const borrow_date = today; // ใช้วันที่ปัจจุบันที่หาไว้แล้ว
+    const borrow_date = today; 
 
     const [result] = await pool.query(
       "INSERT INTO borrow_request (student_id, item_id, borrow_date, return_date, request_status) VALUES (?, ?, ?, ?, ?)",
       [student_id, item_id, borrow_date, return_date, 'Pending']
-      // Trigger ใน .sql จะเปลี่ยนสถานะ item เป็น 'Pending' ให้เอง
     );
     
     res.json({ success: true, request_id: result.insertId });
@@ -80,7 +129,8 @@ router.post("/borrow/request", async (req, res) => {
   }
 });
 
-// 4. GET: ดึง "Request Result" (ที่ยัง Pending) ตามรหัสนักเรียน (เหมือนเดิม)
+
+// 4. GET: ดึง "Request Result" (ที่ยัง Pending) (เหมือนเดิม)
 router.get("/requests/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
@@ -95,7 +145,7 @@ router.get("/requests/:studentId", async (req, res) => {
   }
 });
 
-// 5. GET: ดึง "History" (ที่ Approved/Rejected แล้ว) ตามรหัสนักเรียน (เหมือนเดิม)
+// 5. GET: ดึง "History" (ที่ Approved/Rejected แล้ว) (เหมือนเดิม)
 router.get("/history/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;

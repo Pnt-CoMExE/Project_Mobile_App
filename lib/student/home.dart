@@ -6,12 +6,11 @@ import 'history.dart';
 import 'request.dart';
 
 // [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://172.28.148.59:3000/api/sport';
-// [FIX] เพิ่ม Base URL สำหรับรูปภาพ (ไม่มี /api/sport)
-const String _imageBaseUrl = 'http://172.28.148.59:3000/';
+const String _apiBaseUrl = 'http://192.168.1.186:3000/api/sport';
+const String _imageBaseUrl = 'http://192.168.1.186:3000/';
 
 // =======================================
-// [NEW] Data Models (ตรงกับ .sql)
+// Data Models (เหมือนเดิม)
 // =======================================
 class SportCategory {
   final int categoryId;
@@ -33,7 +32,8 @@ class SportCategory {
       categoryId: int.parse(json['category_id'].toString()),
       name: json['category_name'],
       image: json['category_image'],
-      availableCount: int.parse(json['available_count'].toString()),
+      // [FIX] แก้ไขกรณี available_count เป็น null (ถ้า GROUP BY ไม่มีแถว)
+      availableCount: int.parse(json['available_count']?.toString() ?? '0'),
       status: json['category_status'],
     );
   }
@@ -79,7 +79,7 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool _isLoading = true;
   late String _username;
-  late int _studentId;
+  late int _studentId; // ⬅️ เราจะใช้ตัวนี้
   List<SportCategory> _categories = [];
   List<SportItem> _items = [];
   SportCategory? _selectedCategory;
@@ -94,7 +94,9 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initializeData() async {
     await _fetchUserData();
-    await _fetchCategories();
+    if (_studentId != 0) {
+      await _fetchCategories();
+    }
     setState(() => _isLoading = false);
   }
 
@@ -104,11 +106,19 @@ class _HomePageState extends State<HomePage> {
       _username = prefs.getString('u_username') ?? 'Guest';
       _studentId = prefs.getInt('u_id') ?? 0;
     });
+    if (_studentId == 0) {
+      _showErrorSnackBar("User ID not found. Please re-login.");
+      setState(() => _isLoading = false);
+    }
   }
 
+  // [FIX] แก้ไข URL ให้ส่ง ?studentId=...
   Future<void> _fetchCategories() async {
+    if (_studentId == 0) return; // ป้องกันการเรียก API ถ้า studentId ไม่มี
     try {
-      final response = await http.get(Uri.parse('$_apiBaseUrl/categories'));
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/categories?studentId=$_studentId'),
+      );
       if (response.statusCode == 200) {
         final data = json.decode(response.body)['data'] as List;
         setState(() {
@@ -117,21 +127,26 @@ class _HomePageState extends State<HomePage> {
               .toList();
         });
       } else {
-        _showErrorSnackBar('Failed to load categories');
+        final data = json.decode(response.body);
+        _showErrorSnackBar('Failed to load categories: ${data['message']}');
       }
     } catch (e) {
       _showErrorSnackBar('Error: ${e.toString()}');
     }
   }
 
+  // [FIX] แก้ไข URL ให้ส่ง ?studentId=...
   Future<void> _fetchItemsForCategory(SportCategory category) async {
+    if (_studentId == 0) return;
     setState(() {
       _isLoading = true;
       _selectedCategory = category;
     });
     try {
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/items/${category.categoryId}'),
+        Uri.parse(
+          '$_apiBaseUrl/items/${category.categoryId}?studentId=$_studentId',
+        ),
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body)['data'] as List;
@@ -139,13 +154,20 @@ class _HomePageState extends State<HomePage> {
           _items = data.map((item) => SportItem.fromJson(item)).toList();
         });
       } else {
-        _showErrorSnackBar('Failed to load items');
+        final data = json.decode(response.body);
+        _showErrorSnackBar('Failed to load items: ${data['message']}');
       }
     } catch (e) {
       _showErrorSnackBar('Error: ${e.toString()}');
     }
     setState(() => _isLoading = false);
   }
+
+  // ... (โค้ดส่วนที่เหลือทั้งหมดเหมือนเดิม) ...
+  // ... ( _createBorrowRequest, _calculateReturnDate, _showErrorSnackBar, _onBackToCategories, _onBottomNavTapped, ... )
+  // ... ( _showLogoutConfirmDialog, _showBorrowDialog, build, _buildHeader, _buildCategoryList, _buildItemList, _buildLegend, _dot, _getCategoryColor )
+
+  // (ฟังก์ชันที่เหลือคัดลอกมาจากโค้ดเดิมที่คุณมี)
 
   Future<void> _createBorrowRequest(String itemId, String returnDateStr) async {
     if (_studentId == 0) {
@@ -239,7 +261,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _showLogoutConfirmDialog() async {
-    // ... (โค้ด Dialog ยืนยัน Logout ของคุณ) ...
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -497,7 +518,11 @@ class _HomePageState extends State<HomePage> {
             children: _categories.asMap().entries.map((entry) {
               int index = entry.key;
               SportCategory category = entry.value;
-              final bool isClickable = category.status == 'Available';
+
+              // [FIX] Logic การกดปุ่มเปลี่ยนไปตามสถานะใหม่
+              final bool isClickable =
+                  category.status == 'Available' ||
+                  category.status == 'Pending';
               final bool isHovered = _hoveredCategoryIndex == index;
 
               return MouseRegion(
@@ -505,9 +530,8 @@ class _HomePageState extends State<HomePage> {
                     ? SystemMouseCursors.click
                     : SystemMouseCursors.basic,
                 onEnter: (_) {
-                  if (isClickable) {
+                  if (isClickable)
                     setState(() => _hoveredCategoryIndex = index);
-                  }
                 },
                 onExit: (_) {
                   if (isClickable) setState(() => _hoveredCategoryIndex = null);
@@ -536,7 +560,6 @@ class _HomePageState extends State<HomePage> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
                               child: Image.network(
-                                // [FIX] ต่อ Base URL
                                 _imageBaseUrl + category.image,
                                 width: 80,
                                 height: 80,
@@ -628,7 +651,10 @@ class _HomePageState extends State<HomePage> {
       itemCount: _items.length,
       itemBuilder: (context, i) {
         final item = _items[i];
+
+        // [FIX] Logic การกดปุ่มเปลี่ยนไปตามสถานะใหม่
         final bool isClickable = item.status == 'Available';
+        final bool isMyPending = item.status == 'Pending';
         final bool isHovered = _hoveredItemIndex == i;
 
         return Card(
@@ -640,7 +666,6 @@ class _HomePageState extends State<HomePage> {
             leading: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.network(
-                // [FIX] ต่อ Base URL
                 _imageBaseUrl + item.image,
                 width: 60,
                 height: 60,
@@ -666,7 +691,9 @@ class _HomePageState extends State<HomePage> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
-                transform: isHovered
+                transform:
+                    isHovered &&
+                        isClickable // [FIX] ขยายเมื่อกดได้เท่านั้น
                     ? (Matrix4.identity()..scale(1.1))
                     : Matrix4.identity(),
                 transformAlignment: Alignment.center,
@@ -685,8 +712,9 @@ class _HomePageState extends State<HomePage> {
                     ),
                     child: Text(
                       item.status,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        // [FIX] ทำให้สีตัวอักษรของ Pending (เหลือง) เป็นสีดำ
+                        color: isMyPending ? Colors.black87 : Colors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -701,7 +729,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildLegend() => Container(
-    // ... (โค้ดเดิม) ...
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: Colors.white,
@@ -735,7 +762,6 @@ class _HomePageState extends State<HomePage> {
   );
 
   Widget _dot(String text, Color color) => Row(
-    // ... (โค้ดเดิม) ...
     children: [
       Container(
         width: 14,
