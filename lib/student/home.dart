@@ -1,3 +1,4 @@
+//home.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -6,8 +7,8 @@ import 'history.dart';
 import 'request.dart';
 
 // [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://172.28.148.59:3000/api/sport';
-const String _imageBaseUrl = 'http://172.28.148.59:3000/';
+const String _apiBaseUrl = 'http://10.10.0.25:3000/api/sport';
+const String _imageBaseUrl = 'http://10.10.0.25:3000/';
 
 // =======================================
 // Data Models (เหมือนเดิม)
@@ -78,8 +79,8 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   bool _isLoading = true;
-  late String _username;
-  late int _studentId; // ⬅️ เราจะใช้ตัวนี้
+  String? _username;
+  int? _studentId;
   List<SportCategory> _categories = [];
   List<SportItem> _items = [];
   SportCategory? _selectedCategory;
@@ -94,7 +95,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initializeData() async {
     await _fetchUserData();
-    if (_studentId != 0) {
+    if ((_studentId ?? 0) != 0) {
       await _fetchCategories();
     }
     setState(() => _isLoading = false);
@@ -470,7 +471,7 @@ class _HomePageState extends State<HomePage> {
                   Text(
                     showItemList
                         ? _selectedCategory?.name ?? 'Items'
-                        : "Hi !!, $_username",
+                        : "Hi !!, ${_username ?? 'Guest'}",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -638,95 +639,105 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildItemList({Key? key}) {
-    if (_items.isEmpty) {
-      return const Center(
-        key: ValueKey('empty_items'),
-        child: Text('No items available in this category.'),
-      );
-    }
-
-    return ListView.builder(
-      key: key,
-      padding: const EdgeInsets.all(12),
-      itemCount: _items.length,
-      itemBuilder: (context, i) {
-        final item = _items[i];
-
-        // [FIX] Logic การกดปุ่มเปลี่ยนไปตามสถานะใหม่
-        final bool isClickable = item.status == 'Available';
-        final bool isMyPending = item.status == 'Pending';
-        final bool isHovered = _hoveredItemIndex == i;
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            leading: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                _imageBaseUrl + item.image,
-                width: 60,
-                height: 60,
-                fit: BoxFit.cover,
-                errorBuilder: (c, e, s) => Container(
-                  width: 60,
-                  height: 60,
-                  color: Colors.grey[200],
-                  child: const Icon(Icons.image_not_supported),
-                ),
-              ),
-            ),
-            title: Text(item.name),
-            trailing: MouseRegion(
-              cursor: isClickable
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              onEnter: (_) {
-                if (isClickable) setState(() => _hoveredItemIndex = i);
-              },
-              onExit: (_) {
-                if (isClickable) setState(() => _hoveredItemIndex = null);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                transform:
-                    isHovered &&
-                        isClickable // [FIX] ขยายเมื่อกดได้เท่านั้น
-                    ? (Matrix4.identity()..scale(1.1))
-                    : Matrix4.identity(),
-                transformAlignment: Alignment.center,
-                child: InkWell(
-                  onTap: isClickable ? () => _showBorrowDialog(item) : null,
-                  borderRadius: BorderRadius.circular(20),
-                  hoverColor: Colors.black.withOpacity(0.1),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getCategoryColor(item.status),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      item.status,
-                      style: TextStyle(
-                        // [FIX] ทำให้สีตัวอักษรของ Pending (เหลือง) เป็นสีดำ
-                        color: isMyPending ? Colors.black87 : Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+  if (_items.isEmpty) {
+    return const Center(
+      key: ValueKey('empty_items'),
+      child: Text('No items available in this category.'),
     );
   }
+
+  return ListView.builder(
+    key: key,
+    padding: const EdgeInsets.all(12),
+    itemCount: _items.length,
+    itemBuilder: (context, i) {
+      final item = _items[i];
+
+      // กดได้เฉพาะ Available (สถานะอื่นยังโชว์ตาม DB เหมือนเดิม)
+      final bool isClickable = item.status == 'Available';
+      final bool isMyPending = item.status == 'Pending';
+      final bool isHovered = _hoveredItemIndex == i;
+
+      return MouseRegion(
+        cursor: isClickable ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: (_) {
+          if (isClickable) setState(() => _hoveredItemIndex = i);
+        },
+        onExit:   (_) {
+          if (isClickable) setState(() => _hoveredItemIndex = null);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          transform: (isHovered && isClickable)
+              ? (Matrix4.identity()..scale(1.03))
+              : Matrix4.identity(),
+          transformAlignment: Alignment.center,
+          child: Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            elevation: isHovered ? 6 : 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              // ✅ กดได้ทั้งบาร์
+              onTap: isClickable ? () => _showBorrowDialog(item) : null,
+              hoverColor: Colors.black.withOpacity(0.03),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                color: const Color(0xFFF4F1F7), // โทนเทา-ม่วงอ่อนเหมือนภาพตัวอย่าง
+                child: Row(
+                  children: [
+                    // รูป
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        _imageBaseUrl + item.image,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => Container(
+                          width: 60,
+                          height: 60,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // ชื่อไอเท็ม
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                    // ป้ายสถานะ (ยังอ่านจาก DB เหมือนเดิม)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _getCategoryColor(item.status),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        item.status,
+                        style: TextStyle(
+                          color: isMyPending ? Colors.black87 : Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildLegend() => Container(
     padding: const EdgeInsets.all(14),

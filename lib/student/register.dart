@@ -1,3 +1,4 @@
+//register.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -47,16 +48,16 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final url = Uri.parse('http://172.28.148.59:3000/api/auth/register');
+      final url = Uri.parse('http://10.10.0.25:3000/api/auth/register');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           // ส่งแค่ username และ password ถูกต้องตาม API
-          'username': _usernameController.text.trim(),
-          'password': _passwordController.text.trim(),
+          'u_username': _usernameController.text.trim(),
+          'u_password': _passwordController.text.trim(),
         }),
-      );
+      );  
 
       final data = jsonDecode(response.body);
 

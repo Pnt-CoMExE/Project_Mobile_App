@@ -1,0 +1,8 @@
+1.import db in your xampp
+
+2.เปลี่ยน http://xx.xx.xx.xx:3000 ทุกไฟล์ .dart ให้ตรงกับ Wi-Fi,Ethernet IPv4
+
+-terminal
+3.npm install express
+
+4.node server.js

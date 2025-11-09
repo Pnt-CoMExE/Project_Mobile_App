@@ -1,3 +1,4 @@
+//sport.js
 import express from "express";
 import pool from "../db.js";
 // [TODO] เพิ่ม middleware ตรวจสอบ token ถ้ามี
