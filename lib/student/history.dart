@@ -7,9 +7,9 @@ import 'home.dart';
 import 'request.dart';
 
 // [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://10.10.0.25:3000/api/sport';
+const String _apiBaseUrl = 'http://192.168.1.4:3000/api/sport';
 // [FIX] เพิ่ม Base URL สำหรับรูปภาพ (ไม่มี /api/sport)
-const String _imageBaseUrl = 'http://10.10.0.25:3000/';
+const String _imageBaseUrl = 'http://192.168.1.4:3000/';
 
 // =======================================
 // [NEW] Data Model (สำหรับ history_view)
@@ -373,20 +373,39 @@ class _HistoryState extends State<History> {
                     _buildReturnStatus(item.returnStatus),
                   ),
                   if (item.requestStatus == 'Rejected' &&
-                      item.requestDescription != null) ...[
+                      item.requestDescription != null &&
+                      item.requestDescription!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     const Text(
-                      'Reason',
+                      'Reason :',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black54,
+                        color: Colors.redAccent,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.requestDescription!,
-                      style: const TextStyle(fontSize: 14, color: Colors.red),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      constraints: const BoxConstraints(minHeight: 40),
+                      alignment: Alignment.topLeft,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white, 
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.redAccent, width: 1.2),
+                      ),
+                      child: Text(
+                        item.requestDescription!,
+                        softWrap: true, // ✅ ขึ้นบรรทัดใหม่อัตโนมัติ
+                        overflow: TextOverflow.visible, // ✅ ไม่ตัดข้อความ
+                        style: const TextStyle(
+                          fontSize: 15,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3, // ✅ เพิ่มช่องไฟให้สวย
+                        ),
+                      ),
                     ),
                   ],
                 ],
