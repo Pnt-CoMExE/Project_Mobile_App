@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Approve extends StatefulWidget {
   const Approve({super.key});
@@ -15,13 +16,24 @@ class _ApproveState extends State<Approve> {
 
   // 🔹 IP ของเครื่องคุณ (แก้ตามจริง)
   final String baseUrl = "http://192.168.0.106/sport_borrow_api";
-  final int lenderId = 4; // <-- รหัส Lender จริงจากตาราง user
+  int? lenderId; // เก็บค่า user_id จาก SharedPreferences
+  int? userRole; // เก็บค่า role จาก SharedPreferences
 
-  @override
-  void initState() {
-    super.initState();
-    fetchRequests();
-  }
+
+ @override
+void initState() {
+  super.initState();
+  _loadUserInfo(); // โหลด user_id และ role ก่อน
+}
+
+Future<void> _loadUserInfo() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    lenderId = prefs.getInt('user_id');
+    userRole = prefs.getInt('user_role');
+  });
+  fetchRequests(); // โหลดข้อมูลหลังจากรู้ว่า user เป็นใคร
+}
 
   /// 🔸 ดึงรายการ Pending
   Future<void> fetchRequests() async {
@@ -41,9 +53,8 @@ class _ApproveState extends State<Approve> {
     } catch (e) {
       debugPrint("❌ fetchRequests error: $e");
       setState(() => isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -76,10 +87,7 @@ class _ApproveState extends State<Approve> {
 
       final result = jsonDecode(response.body);
       if (result["success"] == true) {
-  await fetchRequests(); // โหลดข้อมูลใหม่จากฐานหลัง approve
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text("✅ Approved successfully")),
-  );
+        await fetchRequests(); // โหลดข้อมูลใหม่หลังอัปเดต
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -87,9 +95,8 @@ class _ApproveState extends State<Approve> {
                   ? "✅ Approved successfully"
                   : "❌ Rejected with reason",
             ),
-            backgroundColor: status == "Approved"
-                ? Colors.green
-                : Colors.redAccent,
+            backgroundColor:
+                status == "Approved" ? Colors.green : Colors.redAccent,
           ),
         );
       } else {
@@ -97,9 +104,8 @@ class _ApproveState extends State<Approve> {
       }
     } catch (e) {
       debugPrint("❌ updateRequest error: $e");
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error updating request: $e")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error updating request: $e")));
     }
   }
 
@@ -278,49 +284,62 @@ class _ApproveState extends State<Approve> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () => confirmApprove(
-                          int.parse(req["request_id"].toString()),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 10,
+
+                  // 🔹 เฉพาะ lenderId = 3 เท่านั้นที่เห็นปุ่ม Approve/Reject
+                  lenderId == 3
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => confirmApprove(
+                                int.parse(req["request_id"].toString()),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 10,
+                                ),
+                              ),
+                              child: const Text(
+                                "APPROVE",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => showRejectDialog(
+                                int.parse(req["request_id"].toString()),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 10,
+                                ),
+                              ),
+                              child: const Text(
+                                "REJECT",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Text(
+                            "⚠ You don't have permission to approve.",
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
-                        child: const Text(
-                          "APPROVE",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => showRejectDialog(
-                          int.parse(req["request_id"].toString()),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 10,
-                          ),
-                        ),
-                        child: const Text(
-                          "REJECT",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
