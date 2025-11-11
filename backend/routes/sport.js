@@ -161,4 +161,39 @@ router.get("/history/:studentId", async (req, res) => {
   }
 });
 
+// Dashboard API
+router.get("/", async (req, res) => {
+  try {
+    // --- 1️ นับจำนวนสถานะจาก sport_item ---
+    const [statusRows] = await pool.query(`
+      SELECT 
+        SUM(CASE WHEN status = 'Available' THEN 1 ELSE 0 END) AS available,
+        SUM(CASE WHEN status = 'Borrowed' THEN 1 ELSE 0 END) AS borrowed,
+        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'Disable' THEN 1 ELSE 0 END) AS disable
+      FROM sport_item;
+    `);
+
+    // --- 2️ นับจำนวนหมวดหมู่ทั้งหมด ---
+    const [categoryRows] = await pool.query(`
+      SELECT COUNT(category_id) AS total_sports FROM sport_category;
+    `);
+
+    // --- 3️ นับจำนวน item ทั้งหมด ---
+    const [itemRows] = await pool.query(`
+      SELECT COUNT(*) AS total_items FROM sport_item;
+    `);
+
+    // --- 4️ ส่งข้อมูลกลับ ---
+    res.json({
+      status_summary: statusRows[0],
+      total_sports: categoryRows[0].total_sports,
+      total_items: itemRows[0].total_items,
+    });
+  } catch (err) {
+    console.error("Dashboard error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;

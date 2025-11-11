@@ -29,76 +29,79 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> loginUser() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    try {
-      final url = Uri.parse('http://10.10.0.25:3000/api/auth/login');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          // [FIX 1] แก้ Key ให้ตรงกับฐานข้อมูล
-          'u_username': _usernameController.text.trim(),
-          'u_password': _passwordController.text.trim(),
-        }),
+  try {
+    final url = Uri.parse('http://192.168.0.106:3000/api/auth/login');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'u_username': _usernameController.text.trim(),
+        'u_password': _passwordController.text.trim(),
+      }),
+    );
+
+    if (!mounted) return;
+
+    final data = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && data['success'] == true) {
+      final prefs = await SharedPreferences.getInstance();
+
+      // ✅ เก็บค่าที่จำเป็นสำหรับการเช็กสิทธิ์ Approve
+      int userId = data['user']['u_id'];
+      int userRole = data['user']['u_role'];
+      String username = data['user']['u_username'];
+      String token = data['user']['token'];
+
+      await prefs.setInt('user_id', userId);
+      await prefs.setInt('user_role', userRole);
+      await prefs.setString('username', username);
+      await prefs.setString('token', token);
+
+      debugPrint("✅ Saved user info: id=$userId, role=$userRole, username=$username");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Login successful!')),
       );
 
       if (!mounted) return;
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['success'] == true) {
-        final prefs = await SharedPreferences.getInstance();
-
-        await prefs.setString('token', data['user']['token']);
-        int role = data['user']['u_role'];
-        await prefs.setInt('role', role);
-        String username = data['user']['u_username'];
-        await prefs.setString('u_username', username);
-
-        // --- ⭐️ เพิ่มบรรทัดนี้ ⭐️ ---
-        int studentId = data['user']['u_id'];
-        await prefs.setInt('u_id', studentId);
-        // --- ⭐️ สิ้นสุดการเพิ่ม ⭐️ ---
-
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('✅ Login successful!')));
-        if (!mounted) return;
-
-        if (role == 1) {
-          Navigator.pushReplacementNamed(context, '/student/home');
-        } else if (role == 2) {
-          Navigator.pushReplacementNamed(context, '/staff/dashboard');
-        } else if (role == 3) {
-          Navigator.pushReplacementNamed(context, '/lender/dashboard');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Unknown role, please contact admin.'),
-            ),
-          );
-        }
+      // ✅ ไปยังหน้าตาม role ของผู้ใช้
+      if (userRole == 1) {
+        Navigator.pushReplacementNamed(context, '/student/home');
+      } else if (userRole == 2) {
+        Navigator.pushReplacementNamed(context, '/staff/dashboard');
+      } else if (userRole == 3) {
+        Navigator.pushReplacementNamed(context, '/lender/dashboard');
       } else {
-        // ถ้า Server ตอบกลับมาว่า "Missing fields" หรือ "Invalid credentials"
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('❌ ${data['message']}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unknown role, please contact admin.'),
+          ),
+        );
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('⚠️ Error: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ ${data['message']}')),
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('⚠️ Error: $e')),
+      );
+    }
+  } finally {
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
