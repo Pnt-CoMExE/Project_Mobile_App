@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+// [REMOVED] Imports for Ldashboard and History (no longer needed here)
 
 class Approve extends StatefulWidget {
   const Approve({super.key});
@@ -11,341 +9,163 @@ class Approve extends StatefulWidget {
 }
 
 class _ApproveState extends State<Approve> {
-  List<Map<String, dynamic>> requests = [];
-  bool isLoading = true;
+  // [REMOVED] _selectedIndex (now managed by ldashboard.dart)
 
-  // 🔹 IP ของเครื่องคุณ (แก้ตามจริง)
-  final String baseUrl = "http://192.168.0.106/sport_borrow_api";
-  int? lenderId; // เก็บค่า user_id จาก SharedPreferences
-  int? userRole; // เก็บค่า role จาก SharedPreferences
+  // Mock data (This state is kept locally in this widget)
+  final List<Map<String, dynamic>> requests = [
+    {
+      "item": "Volleyball - 060101",
+      "username": "LnwZa007",
+      "borrowDate": "20/10/2025",
+      "returnDate": "21/10/2025",
+      "status": "pending",
+      "image": "assets/images/volleyball.png", // Ensure this asset exists
+    },
+    {
+      "item": "Badminton Racket - 050101",
+      "username": "James",
+      "borrowDate": "21/10/2025",
+      "returnDate": "21/10/2025",
+      "status": "pending",
+      "image": "assets/images/badminton.png", // Ensure this asset exists
+    },
+  ];
 
+  // Logic for handling approve/reject
+  void handleAction(int index, String action) {
+    final item = requests[index];
+    setState(() {
+      requests.removeAt(index);
+    });
 
- @override
-void initState() {
-  super.initState();
-  _loadUserInfo(); // โหลด user_id และ role ก่อน
-}
-
-Future<void> _loadUserInfo() async {
-  final prefs = await SharedPreferences.getInstance();
-  setState(() {
-    lenderId = prefs.getInt('user_id');
-    userRole = prefs.getInt('user_role');
-  });
-  fetchRequests(); // โหลดข้อมูลหลังจากรู้ว่า user เป็นใคร
-}
-
-  /// 🔸 ดึงรายการ Pending
-  Future<void> fetchRequests() async {
-    try {
-      final response = await http.get(
-        Uri.parse("$baseUrl/get_pending_requests.php"),
-      );
-      if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        setState(() {
-          requests = List<Map<String, dynamic>>.from(data);
-          isLoading = false;
-        });
-      } else {
-        throw Exception("Failed to load requests");
-      }
-    } catch (e) {
-      debugPrint("❌ fetchRequests error: $e");
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error: $e")));
-    }
-  }
-
-  /// 🔸 ฟังก์ชันอัปเดตสถานะ Approve / Reject
-  Future<void> updateRequest({
-    required int requestId,
-    required String status,
-    String? reason,
-  }) async {
-    try {
-      final bodyData = jsonEncode({
-        "request_id": requestId,
-        "status": status,
-        "lender_id": lenderId,
-        "reason": reason ?? "",
-      });
-
-      debugPrint("📤 Sending JSON: $bodyData");
-
-      final response = await http.post(
-        Uri.parse("$baseUrl/update_request_status.php"),
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        body: bodyData,
-      );
-
-      debugPrint("📥 Response: ${response.body}");
-
-      final result = jsonDecode(response.body);
-      if (result["success"] == true) {
-        await fetchRequests(); // โหลดข้อมูลใหม่หลังอัปเดต
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              status == "Approved"
-                  ? "✅ Approved successfully"
-                  : "❌ Rejected with reason",
-            ),
-            backgroundColor:
-                status == "Approved" ? Colors.green : Colors.redAccent,
-          ),
-        );
-      } else {
-        throw Exception(result["message"]);
-      }
-    } catch (e) {
-      debugPrint("❌ updateRequest error: $e");
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Error updating request: $e")));
-    }
-  }
-
-  /// 🔸 Popup Confirm (แบบภาพแรก)
-  Future<void> confirmApprove(int requestId) async {
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-                const Text(
-                  "Are you confirm to approve?",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                const Icon(Icons.info_outline, color: Colors.green, size: 40),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 40,
-                      vertical: 10,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    updateRequest(requestId: requestId, status: "Approved");
-                  },
-                  child: const Text(
-                    "Confirm",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// 🔸 ป้อนเหตุผล Reject
-  Future<void> showRejectDialog(int requestId) async {
-    final reasonController = TextEditingController();
-    await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Reason for rejection"),
-        content: TextField(
-          controller: reasonController,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: "Enter reason...",
-            border: OutlineInputBorder(),
-          ),
+    // Show feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          action == "approve"
+              ? "Approved ${item["item"]} for ${item["username"]}"
+              : "Rejected ${item["item"]} from ${item["username"]}",
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () {
-              final reason = reasonController.text.trim();
-              if (reason.isNotEmpty) {
-                Navigator.pop(context);
-                updateRequest(
-                  requestId: requestId,
-                  status: "Rejected",
-                  reason: reason,
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Please enter reason")),
-                );
-              }
-            },
-            child: const Text("Reject"),
-          ),
-        ],
+        backgroundColor: action == "approve" ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
+  // [REMOVED] _onItemTapped function (now managed by ldashboard.dart)
+
   @override
   Widget build(BuildContext context) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (requests.isEmpty) {
-      return const Center(
-        child: Text(
-          "No pending requests",
-          style: TextStyle(fontSize: 18, color: Colors.grey),
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: fetchRequests,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: requests.length,
-        itemBuilder: (context, index) {
-          final req = requests[index];
-          final imageUrl =
-              "assets/images/${req["item_image"]?.split('/')?.last ?? "no_image.png"}";
-
-          return Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+    // [MODIFIED] Return only the body content, not a full Scaffold
+    return requests.isEmpty
+        ? const Center(
+            child: Text(
+              "No pending requests",
+              style: TextStyle(fontSize: 18, color: Colors.grey),
             ),
-            elevation: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          )
+        : ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: requests.length,
+            itemBuilder: (context, index) {
+              final req = requests[index];
+              return Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.asset(
-                          imageUrl,
-                          height: 70,
-                          width: 70,
+                          req["image"],
+                          height: 120,
+                          width: double.infinity,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            height: 70,
-                            width: 70,
-                            color: Colors.grey[300],
-                            child: const Icon(Icons.image_not_supported),
-                          ),
+                          // [ADDED] Error builder in case image fails
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              height: 120,
+                              width: double.infinity,
+                              color: Colors.grey[200],
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey[600],
+                                size: 40,
+                              ),
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Username: ${req["username"]}",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                      const SizedBox(height: 10),
+                      Text(
+                        "Item : ${req["item"]}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text("Borrower : ${req["username"]}"),
+                      Text("Borrow date : ${req["borrowDate"]}"),
+                      Text("Return on : ${req["returnDate"]}"),
+                      const SizedBox(height: 12),
+
+                      // ปุ่ม APPROVE / REJECT
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () => handleAction(index, "approve"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            Text("Item: ${req["item_name"]}"),
-                            Text("Sport: ${req["category_name"]}"),
-                            Text("Borrow date: ${req["borrow_date"]}"),
-                            Text("Return on: ${req["return_date"]}"),
-                          ],
-                        ),
+                            child: const Text(
+                              "APPROVE",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => handleAction(index, "reject"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              "REJECT",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-
-                  // 🔹 เฉพาะ lenderId = 3 เท่านั้นที่เห็นปุ่ม Approve/Reject
-                  lenderId == 3
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            ElevatedButton(
-                              onPressed: () => confirmApprove(
-                                int.parse(req["request_id"].toString()),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 10,
-                                ),
-                              ),
-                              child: const Text(
-                                "APPROVE",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            ElevatedButton(
-                              onPressed: () => showRejectDialog(
-                                int.parse(req["request_id"].toString()),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 10,
-                                ),
-                              ),
-                              child: const Text(
-                                "REJECT",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        )
-                      : const Padding(
-                          padding: EdgeInsets.only(top: 8),
-                          child: Text(
-                            "⚠ You don't have permission to approve.",
-                            style: TextStyle(
-                              color: Colors.grey,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           );
-        },
-      ),
-    );
   }
 }
