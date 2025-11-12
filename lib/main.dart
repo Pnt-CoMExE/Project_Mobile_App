@@ -1,5 +1,6 @@
 // Refactored main.dart - central routes and role-aware navigation
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart'; // ✅ เพิ่มบรรทัดนี้
 import 'package:project_mobile_app/student/welcome.dart';
 import 'package:project_mobile_app/student/login.dart';
 import 'package:project_mobile_app/student/register.dart';
@@ -7,7 +8,9 @@ import 'package:project_mobile_app/staff/sdashboard.dart';
 import 'package:project_mobile_app/lender/ldashboard.dart';
 import 'package:project_mobile_app/student/home.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); 
+  await initializeDateFormatting('th', null); // ✅ โหลด locale ภาษาไทย
   runApp(const SportBorrowingApp());
 }
 
@@ -20,22 +23,15 @@ class SportBorrowingApp extends StatelessWidget {
       title: 'Sport Borrowing',
       debugShowCheckedModeBanner: false,
 
-      // [FIX] เพิ่มการตั้งค่า Theme ตรงนี้
       theme: ThemeData(
-        // 1. กำหนดสีพื้นหลังหลักของทุก Scaffold (ทุกหน้า)
         scaffoldBackgroundColor: const Color(0xFFF3F4F6),
-
-        // 2. (แนะนำ) กำหนดสี AppBar หลักให้เป็นสีม่วง
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.deepPurple,
-          foregroundColor: Colors.white, // สีตัวอักษรและไอคอนบน AppBar
+          foregroundColor: Colors.white,
         ),
-
-        // 3. บังคับให้แอปใช้ Light Theme (ป้องกัน Dark Mode อัตโนมัติ)
         brightness: Brightness.light,
       ),
 
-      // [END FIX]
       initialRoute: '/',
       routes: {
         '/': (context) => const WelcomePage(),
