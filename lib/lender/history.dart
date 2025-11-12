@@ -15,7 +15,7 @@ class _HistoryState extends State<History> {
   bool _isLoading = false;
 
   final int lenderId = 3;
-  final String baseUrl = "http://192.168.1.4:3000/api/sport";
+  final String baseUrl = "http://10.10.0.25:3000/api/sport";
 
   Future<void> _fetchHistory() async {
     setState(() => _isLoading = true);
@@ -71,7 +71,7 @@ class _HistoryState extends State<History> {
                     itemBuilder: (context, index) {
                       final item = _historyList[index];
                       final imageUrl =
-                          "http://192.168.1.4:3000/${item['item_image'] ?? 'images/default.png'}";
+                          "http://10.10.0.25:3000/${item['item_image'] ?? 'images/default.png'}";
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 16),

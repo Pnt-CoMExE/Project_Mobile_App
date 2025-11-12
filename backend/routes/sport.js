@@ -89,46 +89,98 @@ router.get("/items/:categoryId", async (req, res) => {
 
 
 // 3. POST: สร้างคำขอยืมใหม่ (Borrow Request) - (โค้ดเดิมที่แก้แล้ว)
+// 3. POST: สร้างคำขอยืมใหม่ (Borrow Request)
+// 3. POST: สร้างคำขอยืมใหม่ (Borrow Request)
 router.post("/borrow/request", async (req, res) => {
   const { student_id, item_id, return_date } = req.body;
 
   if (!student_id || !item_id || !return_date) {
-    return res.status(400).json({ success: false, message: "Missing fields" });
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing fields" });
   }
 
   try {
-    // --- [FIX] ตรวจสอบการยืมซ้ำซ้อน ---------------------
-    const today = new Date().toISOString().split('T')[0];
-    const [existingRequests] = await pool.query(
-      "SELECT COUNT(*) AS count FROM borrow_request WHERE request_status = 'pending' AND student_id = ? AND borrow_date = ?",
-      [student_id, today]
+    const today = new Date().toISOString().split("T")[0];
+
+const [activeBorrow] = await pool.query(
+  `SELECT request_id, item_id, request_status, return_date, actual_return_date
+   FROM borrow_request
+   WHERE student_id = ?
+     AND request_status = 'Approved'       -- ได้รับอนุมัติแล้วยังถือของอยู่
+     AND (actual_return_date IS NULL OR actual_return_date = '')  -- ยังไม่คืนจริง
+     AND return_date >= ?                  -- ยังไม่ถึงวันครบกำหนดคืน
+  `,
+  [student_id, today]
+);
+
+console.log("📦 Borrow limit check for student", student_id, "=>", activeBorrow);
+
+if (activeBorrow.length > 0) {
+  return res.status(400).json({
+    success: false,
+    message: "You have already borrowed the item!! Please return and you can borrow again.",
+  });
+}
+    // ✅ 2. ตรวจว่าสินค้าชิ้นนี้ถูกยืมอยู่ไหม
+    const [itemRows] = await pool.query(
+      "SELECT status FROM sport_item WHERE item_id = ?",
+      [item_id]
     );
 
-    if (existingRequests[0].count > 0) {
-      return res.status(409).json({ 
-        success: false, 
-        message: "You can only make one borrow request per day."
+    if (!itemRows.length) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Item not found" });
+    }
+
+    if (itemRows[0].status.toLowerCase() === "borrowed") {
+      return res.status(400).json({
+        success: false,
+        message: "Item already borrowed",
       });
     }
-    // --- [FIX] END ------------------------------------------
 
-    const borrow_date = today; 
-
-    const [result] = await pool.query(
-      "INSERT INTO borrow_request (student_id, item_id, borrow_date, return_date, request_status) VALUES (?, ?, ?, ?, ?)",
-      [student_id, item_id, borrow_date, return_date, 'Pending']
+    // ✅ 3. ป้องกันการยื่นคำขอ Pending ซ้ำ (ตัวใหญ่!)
+    const [pendingCheck] = await pool.query(
+      `SELECT COUNT(*) AS cnt
+       FROM borrow_request
+       WHERE student_id = ?
+         AND request_status = 'Pending'`,
+      [student_id]
     );
-    
-    res.json({ success: true, request_id: result.insertId });
 
-  } catch (err) {
-    console.error(err);
-    if (err.code === 'ER_NO_REFERENCED_ROW_2') {
-         return res.status(404).json({ success: false, message: "Invalid item or student ID" });
+    if (pendingCheck[0].cnt > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "You have a pending request waiting for approval. You cannot borrow more items at this time",
+      });
     }
-    res.status(500).json({ success: false, message: "Server error" });
+
+    // ✅ 4. สร้างคำขอยืมใหม่
+    const borrow_date = today;
+    const [result] = await pool.query(
+      `INSERT INTO borrow_request
+        (student_id, item_id, borrow_date, return_date, request_status)
+       VALUES (?, ?, ?, ?, 'Pending')`,
+      [student_id, item_id, borrow_date, return_date]
+    );
+
+    res.json({
+      success: true,
+      request_id: result.insertId,
+      message: "Borrow request created successfully",
+    });
+  } catch (err) {
+    console.error("❌ Error creating borrow request:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 });
+
+
 
 
 // 4. GET: ดึง "Request Result" (ที่ยัง Pending) (เหมือนเดิม)
@@ -160,78 +212,6 @@ router.get("/history/:studentId", async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
-// 6. POST: Lender อัปเดตสถานะคำขอ (Approve / Reject)
-router.post("/lender/update_status", async (req, res) => {
-  const { request_id, status, lender_id, reason } = req.body;
-
-  if (!request_id || !status || !lender_id) {
-    return res.status(400).json({ success: false, message: "Missing required fields" });
-  }
-
-  try {
-    // ✅ อัปเดตสถานะคำขอในตาราง borrow_request
-    await pool.query(
-      `UPDATE borrow_request 
-       SET request_status = ?, lender_id = ?, request_description = ?
-       WHERE request_id = ?`,
-      [status, lender_id, reason || null, request_id]
-    );
-
-    // ✅ อัปเดตสถานะของ sport_item ให้สอดคล้อง (เหมือน Trigger)
-    if (status === "Approved") {
-      await pool.query(
-        "UPDATE sport_item si JOIN borrow_request br ON si.item_id = br.item_id SET si.status = 'Borrowed' WHERE br.request_id = ?",
-        [request_id]
-      );
-    } else if (status === "Rejected") {
-      await pool.query(
-        "UPDATE sport_item si JOIN borrow_request br ON si.item_id = br.item_id SET si.status = 'Available' WHERE br.request_id = ?",
-        [request_id]
-      );
-    }
-
-    res.json({ success: true, message: `Request ${status} successfully` });
-  } catch (err) {
-    console.error("Error updating request:", err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
-
-// 7. GET: ดึงประวัติของ Lender (Approved / Rejected)
-router.get("/lender/history/:lenderId", async (req, res) => {
-  try {
-    const { lenderId } = req.params;
-
-    const [rows] = await pool.query(`
-      SELECT 
-        br.request_id,
-        u.u_username AS username,
-        si.item_name,
-        sc.category_name,
-        si.item_image,
-        br.borrow_date,
-        br.return_date,
-        br.request_status,
-        br.request_description AS reason
-      FROM borrow_request br
-      JOIN user u ON br.student_id = u.u_id
-      JOIN sport_item si ON br.item_id = si.item_id
-      JOIN sport_category sc ON si.category_id = sc.category_id
-      WHERE br.lender_id = ?
-        AND br.request_status IN ('Approved', 'Rejected')
-      ORDER BY br.request_id DESC
-    `, [lenderId]);
-
-    res.json({ success: true, data: rows });
-  } catch (err) {
-    console.error("Error fetching lender history:", err);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-});
-
-
-
 
 // Dashboard API
 router.get("/", async (req, res) => {
