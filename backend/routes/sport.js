@@ -161,6 +161,78 @@ router.get("/history/:studentId", async (req, res) => {
   }
 });
 
+// 6. POST: Lender อัปเดตสถานะคำขอ (Approve / Reject)
+router.post("/lender/update_status", async (req, res) => {
+  const { request_id, status, lender_id, reason } = req.body;
+
+  if (!request_id || !status || !lender_id) {
+    return res.status(400).json({ success: false, message: "Missing required fields" });
+  }
+
+  try {
+    // ✅ อัปเดตสถานะคำขอในตาราง borrow_request
+    await pool.query(
+      `UPDATE borrow_request 
+       SET request_status = ?, lender_id = ?, request_description = ?
+       WHERE request_id = ?`,
+      [status, lender_id, reason || null, request_id]
+    );
+
+    // ✅ อัปเดตสถานะของ sport_item ให้สอดคล้อง (เหมือน Trigger)
+    if (status === "Approved") {
+      await pool.query(
+        "UPDATE sport_item si JOIN borrow_request br ON si.item_id = br.item_id SET si.status = 'Borrowed' WHERE br.request_id = ?",
+        [request_id]
+      );
+    } else if (status === "Rejected") {
+      await pool.query(
+        "UPDATE sport_item si JOIN borrow_request br ON si.item_id = br.item_id SET si.status = 'Available' WHERE br.request_id = ?",
+        [request_id]
+      );
+    }
+
+    res.json({ success: true, message: `Request ${status} successfully` });
+  } catch (err) {
+    console.error("Error updating request:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// 7. GET: ดึงประวัติของ Lender (Approved / Rejected)
+router.get("/lender/history/:lenderId", async (req, res) => {
+  try {
+    const { lenderId } = req.params;
+
+    const [rows] = await pool.query(`
+      SELECT 
+        br.request_id,
+        u.u_username AS username,
+        si.item_name,
+        sc.category_name,
+        si.item_image,
+        br.borrow_date,
+        br.return_date,
+        br.request_status,
+        br.request_description AS reason
+      FROM borrow_request br
+      JOIN user u ON br.student_id = u.u_id
+      JOIN sport_item si ON br.item_id = si.item_id
+      JOIN sport_category sc ON si.category_id = sc.category_id
+      WHERE br.lender_id = ?
+        AND br.request_status IN ('Approved', 'Rejected')
+      ORDER BY br.request_id DESC
+    `, [lenderId]);
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("Error fetching lender history:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+
+
 // Dashboard API
 router.get("/", async (req, res) => {
   try {

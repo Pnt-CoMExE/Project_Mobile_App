@@ -134,7 +134,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   Future<void> fetchDashboard() async {
     try {
-      final url = Uri.parse("http://10.10.0.25:3000/api/dashboard");
+      final url = Uri.parse("http://192.168.1.4:3000/api/dashboard");
       final res = await http.get(url);
 
       if (res.statusCode == 200) {
