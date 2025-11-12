@@ -1,11 +1,8 @@
-//login.dart
+// lib/student/login.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-
-// [หมายเหตุ] นี่คือไฟล์ login.dart ที่อยู่ใน lib/student/login.dart
-// (อิงตามไฟล์ main.dart ของคุณ)
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -34,45 +31,61 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      final url = Uri.parse('http://192.168.0.106:3000/api/auth/login');
+      final url = Uri.parse('http://10.10.0.25:3000/api/auth/login');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          // [FIX 1] แก้ Key ให้ตรงกับฐานข้อมูล
           'u_username': _usernameController.text.trim(),
           'u_password': _passwordController.text.trim(),
         }),
       );
 
+      debugPrint("📥 Login Response (${response.statusCode}): ${response.body}");
+
       if (!mounted) return;
 
-      final data = jsonDecode(response.body);
+      Map<String, dynamic>? data;
+      try {
+        data = jsonDecode(response.body);
+      } catch (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Invalid response from server')),
+        );
+        setState(() => _isLoading = false);
+        return;
+      }
 
-      if (response.statusCode == 200 && data['success'] == true) {
-        final prefs = await SharedPreferences.getInstance();
+      if (response.statusCode == 200 && data!['success'] == true) {
+  final prefs = await SharedPreferences.getInstance();
 
-        await prefs.setString('token', data['user']['token']);
-        int role = data['user']['u_role'];
-        await prefs.setInt('role', role);
-        String username = data['user']['u_username'];
+  int userId = data!['user']['u_id'];
+  int userRole = data!['user']['u_role'];
+  String username = data!['user']['u_username'];
+  String token = data!['user']['token'] ?? '';
+
+
+        // ✅ บันทึกลง SharedPreferences (ใช้ key เดียวกับทุกหน้า)
+        await prefs.setInt('u_id', userId);
+        await prefs.setInt('u_role', userRole);
         await prefs.setString('u_username', username);
+        await prefs.setString('token', token);
 
-        // --- ⭐️ เพิ่มบรรทัดนี้ ⭐️ ---
-        int studentId = data['user']['u_id'];
-        await prefs.setInt('u_id', studentId);
-        // --- ⭐️ สิ้นสุดการเพิ่ม ⭐️ ---
+        debugPrint(
+            "✅ Saved user info: u_id=$userId, u_role=$userRole, u_username=$username");
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('✅ Login successful!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Login successful!')),
+        );
+
         if (!mounted) return;
 
-        if (role == 1) {
+        // ✅ ไปยังหน้าตาม role
+        if (userRole == 1) {
           Navigator.pushReplacementNamed(context, '/student/home');
-        } else if (role == 2) {
+        } else if (userRole == 2) {
           Navigator.pushReplacementNamed(context, '/staff/dashboard');
-        } else if (role == 3) {
+        } else if (userRole == 3) {
           Navigator.pushReplacementNamed(context, '/lender/dashboard');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -82,16 +95,15 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } else {
-        // ถ้า Server ตอบกลับมาว่า "Missing fields" หรือ "Invalid credentials"
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('❌ ${data['message']}')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ ${data!['message']}')),
+        );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('⚠️ Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('⚠️ Error: $e')),
+        );
       }
     } finally {
       if (mounted) {
@@ -102,7 +114,6 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // [หมายเหตุ] UI ส่วนนี้คือดีไซน์เดิมของคุณ (ผมไม่ได้แก้ไข)
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -118,7 +129,6 @@ class _LoginPageState extends State<LoginPage> {
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.all(10),
-                // [แก้ไข] ปุ่ม Back ควรไปที่ '/' (WelcomePage)
                 child: GestureDetector(
                   onTap: () => Navigator.pushReplacementNamed(context, '/'),
                   child: const Text(
@@ -229,8 +239,8 @@ class _LoginPageState extends State<LoginPage> {
                                       ? const CircularProgressIndicator(
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                                Colors.white,
-                                              ),
+                                            Colors.white,
+                                          ),
                                         )
                                       : const Text(
                                           "Login",
@@ -248,7 +258,6 @@ class _LoginPageState extends State<LoginPage> {
                           const SizedBox(height: 15),
                           TextButton(
                             onPressed: () {
-                              // [แก้ไข] ไปที่ '/register' ตามที่ main.dart กำหนด
                               Navigator.pushNamed(context, '/register');
                             },
                             child: const Text(

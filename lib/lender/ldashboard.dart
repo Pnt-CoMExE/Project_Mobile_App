@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // Make sure you ran 'flutter pub get' for this
-import 'package:shared_preferences/shared_preferences.dart'; // For Logout
-
-// [IMPORTANT] Import the other pages as "content"
+import 'package:fl_chart/fl_chart.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'approve.dart';
 import 'history.dart';
 
-// This is the "Main" (Wrapper) page for Lender
-// It controls the BottomNavBar and IndexedStack
 class Ldashboard extends StatefulWidget {
   const Ldashboard({super.key});
 
@@ -16,79 +14,38 @@ class Ldashboard extends StatefulWidget {
 }
 
 class _LdashboardState extends State<Ldashboard> {
-  int _selectedIndex = 0; // 0: Dashboard, 1: Approve, 2: History
+  int _selectedIndex = 0;
 
-  // [MODIFIED] Create a list of "content" pages to display
   final List<Widget> _widgetOptions = <Widget>[
-    const _DashboardContent(), // 0: The graph content (defined below)
-    const Approve(), // 1: Content from approve.dart
-    const History(), // 2: Content from history.dart
+    const _DashboardContent(),
+    const Approve(),
+    const History(),
   ];
 
-  // [MODIFIED] Correct Logout function
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
+
   void _showLogoutDialog() {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          title: const Text(
-            'Are you sure to Logout',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                size: 52,
-                color: Colors.grey[700],
-              ),
-            ],
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Are you sure to Logout?', textAlign: TextAlign.center),
           actionsAlignment: MainAxisAlignment.center,
-          actions: <Widget>[
+          actions: [
             TextButton(
-              child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(dialogContext),
             ),
-            const SizedBox(width: 8),
             ElevatedButton.icon(
-              icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-              label: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20.0),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-              ),
+              icon: const Icon(Icons.logout, color: Colors.white),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade600),
               onPressed: () async {
-                // 1. Clear Token
                 final prefs = await SharedPreferences.getInstance();
-                await prefs.clear(); // Clear token, role
-
-                // 2. Close Dialog
-                if (mounted) Navigator.of(dialogContext).pop();
-
-                // 3. Go back to Login page
+                await prefs.clear();
                 if (mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/login', // Go back to Login (from student/main.dart)
-                    (Route<dynamic> route) => false, // Clear all old pages
-                  );
+                  Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
                 }
               },
             ),
@@ -98,267 +55,193 @@ class _LdashboardState extends State<Ldashboard> {
     );
   }
 
-  // [MODIFIED] Function to switch tabs
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
-  // [MODIFIED] Helper for dynamic AppBar title
-  String get _appBarTitle {
-    switch (_selectedIndex) {
-      case 0:
-        return 'Dashboard';
-      case 1:
-        return 'Approve List';
-      case 2:
-        return 'History';
-      default:
-        return 'Lender';
-    }
-  }
-
-  // [MODIFIED] Helper for dynamic AppBar icon
-  IconData get _appBarIcon {
-    switch (_selectedIndex) {
-      case 0:
-        return Icons.wifi_tethering;
-      case 1:
-        return Icons.grid_view_rounded;
-      case 2:
-        return Icons.calendar_today;
-      default:
-        return Icons.shield;
-    }
-  }
+  String get _appBarTitle => ['Dashboard', 'Approve List', 'History'][_selectedIndex];
+  IconData get _appBarIcon =>
+      [Icons.wifi_tethering, Icons.grid_view_rounded, Icons.calendar_today][_selectedIndex];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // [ADDED] Added background color from approve.dart
       backgroundColor: const Color(0xFFF3F4F6),
-
-      //🔹 AppBar สีม่วงเข้ม
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: SafeArea(
-          child: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
-                begin: Alignment.topLeft,
-                end: Alignment.topRight,
-              ),
-            ),
-            child: AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              // [FIX] Title color
-              title: Text(
-                _appBarTitle,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              leading: Icon(_appBarIcon, color: Colors.white), // Dynamic icon
-              centerTitle: true,
-              actions: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: _showLogoutDialog, // [FIX] Call correct logout
-                  ),
-                ),
-              ],
-            ),
+      appBar: AppBar(
+        title: Text(_appBarTitle,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        leading: Icon(_appBarIcon, color: Colors.white),
+        actions: [
+          IconButton(icon: const Icon(Icons.logout, color: Colors.white), onPressed: _showLogoutDialog),
+        ],
+        centerTitle: true,
+        flexibleSpace: const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [Color(0xFF8E24AA), Color(0xFF4A148C)]),
           ),
         ),
       ),
-
-      // 🔹 BottomNavigationBar
-      // [FIX] Wrapped in SafeArea to fix bottom overflow
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          height: 60, // ลดความสูง
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF8E24AA), Color(0xFF4A148C)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
-          child: ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-            child: BottomNavigationBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              selectedItemColor: Colors.white,
-              unselectedItemColor: Colors.white70,
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped, // [FIX] Call tab switch function
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Center(child: Icon(Icons.wifi_tethering)),
-                  label: '',
-                ),
-                BottomNavigationBarItem(
-                  icon: Center(child: Icon(Icons.grid_view_rounded)),
-                  label: '',
-                ),
-                BottomNavigationBarItem(
-                  icon: Center(child: Icon(Icons.calendar_today)),
-                  label: '',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-
-      // [MODIFIED] Use IndexedStack to switch "content"
       body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
+      bottomNavigationBar: _bottomNav(),
+    );
+  }
+
+  Widget _bottomNav() {
+    return Container(
+      height: 60,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(colors: [Color(0xFF8E24AA), Color(0xFF4A148C)]),
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20)),
+        child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white70,
+          showSelectedLabels: false,
+          showUnselectedLabels: false,
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.wifi_tethering), label: ''),
+            BottomNavigationBarItem(icon: Icon(Icons.grid_view_rounded), label: ''),
+            BottomNavigationBarItem(icon: Icon(Icons.calendar_today), label: ''),
+          ],
+        ),
+      ),
     );
   }
 }
 
 // ==========================================================
-// Dashboard Content (The content for Tab 0)
-// Your original dashboard UI (graph, etc.) is moved here
+// 📊 Dashboard Content (Connected to API)
 // ==========================================================
-class _DashboardContent extends StatelessWidget {
+class _DashboardContent extends StatefulWidget {
   const _DashboardContent();
 
   @override
+  State<_DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<_DashboardContent> {
+  bool loading = true;
+  int available = 0, notAvailable = 0, pending = 0, borrowed = 0;
+  int totalSports = 0, totalItems = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDashboard();
+  }
+
+  Future<void> fetchDashboard() async {
+    try {
+      final url = Uri.parse("http://10.10.0.25:3000/api/dashboard");
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        final status = data['status_summary'];
+
+        setState(() {
+          available = int.tryParse(status['available'].toString()) ?? 0;
+          borrowed = int.tryParse(status['borrowed'].toString()) ?? 0;
+          pending = int.tryParse(status['pending'].toString()) ?? 0;
+          notAvailable = int.tryParse(status['disable'].toString()) ?? 0;
+
+          totalSports = data['total_sports'] ?? 0;
+          totalItems = data['total_items'] ?? 0;
+          loading = false;
+        });
+      } else {
+        throw Exception("Failed to load dashboard");
+      }
+    } catch (e) {
+      print("❌ Error fetching dashboard: $e");
+      setState(() => loading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // === donut chart card ===
+          // ===== donut chart card =====
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 5,
-                  offset: Offset(2, 2),
-                ),
-              ],
-            ),
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: _cardDecoration(),
             child: Column(
               children: [
                 SizedBox(
-                  height: 180,
-                  child: Stack(
-                    children: [
-                      PieChart(
-                        PieChartData(
-                          centerSpaceRadius: 35,
-                          sectionsSpace: 2,
-                          sections: [
-                            PieChartSectionData(
-                              color: Colors.green,
-                              value: 17,
-                              title: '',
-                            ),
-                            PieChartSectionData(
-                              color: Colors.red,
-                              value: 9,
-                              title: '',
-                            ),
-                            PieChartSectionData(
-                              color: Colors.yellow,
-                              value: 10,
-                              title: '',
-                            ),
-                            PieChartSectionData(
-                              color: Colors.blue,
-                              value: 7,
-                              title: '',
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(top: 10, left: 25, child: _numberBox("17")),
-                      Positioned(top: 15, right: 40, child: _numberBox("9")),
-                      Positioned(
-                        bottom: 25,
-                        right: 40,
-                        child: _numberBox("10"),
-                      ),
-                      Positioned(bottom: 30, left: 25, child: _numberBox("7")),
-                    ],
+                  height: 220,
+                  child: PieChart(
+                    PieChartData(
+                      startDegreeOffset: -90,
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 55,
+                      borderData: FlBorderData(show: false),
+                      sections: [
+                        _buildSection(Colors.green, available, "Available"),
+                        _buildSection(Colors.red, notAvailable, "Not Available"),
+                        _buildSection(Colors.yellow.shade700, pending, "Pending"),
+                        _buildSection(Colors.blue, borrowed, "Borrowed"),
+                      ],
+                    ),
+                    swapAnimationDuration: const Duration(milliseconds: 1200), // 🔄 Animation
+                    swapAnimationCurve: Curves.easeOutCubic,
                   ),
                 ),
-                const SizedBox(height: 10),
-                // === legend section ===
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: const [
-                    LegendItem(color: Colors.green, text: "Available :"),
-                    LegendItem(color: Colors.red, text: "Not Available :"),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: const [
-                    LegendItem(color: Colors.yellow, text: "Pending :"),
-                    LegendItem(color: Colors.blue, text: "Borrowed :"),
-                  ],
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Column(
+                    children: const [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          LegendItem(color: Colors.green, text: "Available"),
+                          LegendItem(color: Colors.red, text: "Not Available"),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          LegendItem(color: Colors.yellow, text: "Pending"),
+                          LegendItem(color: Colors.blue, text: "Borrowed"),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
-          // === item list today card ===
+          // ===== item list today card =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 5,
-                  offset: Offset(2, 2),
-                ),
-              ],
-            ),
+            decoration: _cardDecoration(),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Item list Today",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
+                const Text("Item Stock Today",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [const Text("All items :"), _numberBox("7")],
-                ),
+                _infoRow("Total Sports :", totalSports.toString()),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [const Text("All Items count :"), _numberBox("43")],
-                ),
+                _infoRow("Total Items Stock :", totalItems.toString()),
               ],
             ),
           ),
@@ -367,23 +250,64 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
-  Widget _numberBox(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black38),
-        borderRadius: BorderRadius.circular(6),
+  static BoxDecoration _cardDecoration() => BoxDecoration(
         color: Colors.white,
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-      ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 5, offset: Offset(2, 2))
+        ],
+      );
+
+  Widget _infoRow(String title, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.black38),
+          ),
+          child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  // ✅ ฟังก์ชันสร้าง section ของกราฟ (สีตามสถานะ + animation)
+  PieChartSectionData _buildSection(Color color, int value, String label) {
+    return PieChartSectionData(
+      color: color,
+      value: value.toDouble(),
+      radius: 50,
+      showTitle: false,
+      badgeWidget: value > 0
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: color, // กล่องสีตามสถานะ
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(1, 2))
+                ],
+              ),
+              child: Text(
+                value.toString(),
+                style: const TextStyle(
+                  color: Colors.white, // ตัวอักษรขาว
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            )
+          : null,
+      badgePositionPercentageOffset: 1.3,
     );
   }
 }
 
-// --- Helpers ---
 class LegendItem extends StatelessWidget {
   final Color color;
   final String text;
@@ -394,9 +318,9 @@ class LegendItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(width: 15, height: 15, color: color),
+        Container(width: 16, height: 16, color: color),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontSize: 14)),
+        Text(text),
       ],
     );
   }
