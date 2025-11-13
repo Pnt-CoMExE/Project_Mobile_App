@@ -68,34 +68,52 @@ class _RequestPageState extends State<RequestPage> {
   }
 
   Future<void> _fetchRequests() async {
-    final prefs = await SharedPreferences.getInstance();
-    final studentId = prefs.getInt('u_id');
+  setState(() => _isLoading = true);
 
-    if (studentId == null || studentId == 0) {
-      _showErrorSnackBar("User not logged in.");
-      setState(() => _isLoading = false);
-      return;
-    }
+  final prefs = await SharedPreferences.getInstance();
+  final studentId = prefs.getInt('u_id');
 
-    try {
-      final response = await http.get(
-        Uri.parse('$_apiBaseUrl/requests/$studentId'),
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'] as List;
+  if (studentId == null || studentId == 0) {
+    _showErrorSnackBar("User not logged in.");
+    setState(() => _isLoading = false);
+    return;
+  }
+
+  try {
+    final url = '$_apiBaseUrl/requests/$studentId';
+    debugPrint("📡 GET $url");
+
+    final response = await http.get(Uri.parse(url));
+
+    debugPrint("📡 Status: ${response.statusCode}");
+    debugPrint("📡 Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded["success"] == true) {
+        final List list = decoded["data"] ?? [];
+
         setState(() {
-          _requestItems = data
+          _requestItems = list
               .map((item) => RequestItem.fromJson(item))
               .toList();
-          _isLoading = false;
         });
       } else {
-        _showErrorSnackBar('Failed to load requests');
+        _showErrorSnackBar("Failed: ${decoded["message"]}");
       }
-    } catch (e) {
-      _showErrorSnackBar('Error: ${e.toString()}');
+    } else {
+      _showErrorSnackBar("HTTP Error ${response.statusCode}");
+    }
+  } catch (e) {
+    _showErrorSnackBar("Error: $e");
+  } finally {
+    // ❗ สำคัญสุด: ปิด loading เสมอ
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;

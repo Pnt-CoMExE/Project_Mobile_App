@@ -1,3 +1,4 @@
+//history.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -15,7 +16,7 @@ class _HistoryState extends State<History> {
   bool _isLoading = false;
 
   final int lenderId = 3;
-  final String baseUrl = "http://10.10.0.25:3000/api/sport";
+  final String baseUrl = "http://172.27.11.229:3000/api/sport";
 
   Future<void> _fetchHistory() async {
     setState(() => _isLoading = true);
@@ -71,7 +72,7 @@ class _HistoryState extends State<History> {
                     itemBuilder: (context, index) {
                       final item = _historyList[index];
                       final imageUrl =
-                          "http://10.10.0.25:3000/${item['item_image'] ?? 'images/default.png'}";
+                          "http://172.27.11.229:3000/${item['item_image'] ?? 'images/default.png'}";
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 16),
