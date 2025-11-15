@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:project_mobile_app/config/ip.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -48,7 +49,7 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final url = Uri.parse('http://172.27.11.229:3000/api/auth/register');
+      final url = Uri.parse('$kAuthApiBaseUrl/register');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},

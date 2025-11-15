@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:project_mobile_app/config/ip.dart';
+
+
 class Approve extends StatefulWidget {
   const Approve({super.key});
 
@@ -14,7 +17,7 @@ class _ApproveState extends State<Approve> {
   bool isLoading = true;
 
   // 🔹 IP ของเครื่องคุณ (แก้ตามจริง)
-  final String baseUrl = "http://172.27.11.229/sport_borrow_api";
+  final String baseUrl = kSportBorrowApiBaseUrl;
 
   final int lenderId = 3; // <-- รหัส Lender จริงจากตาราง user
 

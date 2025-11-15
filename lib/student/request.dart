@@ -1,14 +1,15 @@
+//request.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'history.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 // [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://10.10.0.25:3000/api/sport';
-// [FIX] เพิ่ม Base URL สำหรับรูปภาพ (ไม่มี /api/sport)
-const String _imageBaseUrl = 'http://10.10.0.25:3000/';
+String _apiBaseUrl = kSportApiBaseUrl;
+String _imageBaseUrl = kImageBaseUrl;
 
 // =======================================
 // [NEW] Data Model (สำหรับ request_result_view)

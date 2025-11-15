@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      final url = Uri.parse('http://172.27.11.229:3000/api/auth/login');
+      final url = Uri.parse('$kAuthApiBaseUrl/login');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},

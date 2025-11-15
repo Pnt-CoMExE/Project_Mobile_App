@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'approve.dart';
 import 'history.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 class Ldashboard extends StatefulWidget {
   const Ldashboard({super.key});
@@ -134,7 +135,7 @@ class _DashboardContentState extends State<_DashboardContent> {
 
   Future<void> fetchDashboard() async {
     try {
-      final url = Uri.parse("http://172.27.11.229:3000/api/dashboard");
+      final url = Uri.parse(kDashApiBaseUrl);
       final res = await http.get(url);
 
       if (res.statusCode == 200) {

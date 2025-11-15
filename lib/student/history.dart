@@ -5,15 +5,12 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'request.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
-// [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://172.27.11.229:3000/api/sport';
-// [FIX] เพิ่ม Base URL สำหรับรูปภาพ (ไม่มี /api/sport)
-const String _imageBaseUrl = 'http://172.27.11.229:3000/';
+String _apiBaseUrl = kSportApiBaseUrl;
+String _imageBaseUrl = kImageBaseUrl;
 
-// =======================================
-// [NEW] Data Model (สำหรับ history_view)
-// =======================================
+// -------------------- MODEL --------------------
 class HistoryItem {
   final int requestId;
   final String itemName;
@@ -41,7 +38,6 @@ class HistoryItem {
 
   factory HistoryItem.fromJson(Map<String, dynamic> json) {
     return HistoryItem(
-      // [FIX] แปลง String (INT) เป็น int
       requestId: int.parse(json['request_id'].toString()),
       itemName: json['item_name'],
       categoryName: json['category_name'],
@@ -58,9 +54,8 @@ class HistoryItem {
   }
 }
 
-// =======================================
-// Main History Page
-// =======================================
+// --------------------------------------------------
+
 class History extends StatefulWidget {
   const History({super.key});
 
@@ -116,128 +111,16 @@ class _HistoryState extends State<History> {
     );
   }
 
-  // =======================================
-  // Navigation & Dialogs (เหมือนเดิม)
-  // =======================================
-  void _onItemTapped(int index) {
-    if (index == _selectedIndex) return;
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const HomePage(),
-          transitionDuration: Duration.zero,
-        ),
-      );
-    } else if (index == 1) {
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => const RequestPage(),
-          transitionDuration: Duration.zero,
-        ),
-      );
-    }
-  }
-
-  Future<void> _showLogoutConfirmDialog() async {
-    // ... (โค้ด Dialog ยืนยัน Logout ของคุณ) ...
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          elevation: 0,
-          backgroundColor: Colors.white,
-          child: Container(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  'Logout Confirm',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: Colors.deepPurple[700],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Are you sure to Logout',
-                  style: TextStyle(fontSize: 16, color: Colors.black87),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.black54,
-                  size: 50,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  label: const Text(
-                    'Logout',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.0),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 30,
-                      vertical: 12,
-                    ),
-                  ),
-                  onPressed: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.clear();
-                    Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/login',
-                      (route) => false,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // =======================================
-  // UI Build
-  // =======================================
+  // --------------------- BUILD ---------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
+
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Row(
-          children: const [
-            Icon(Icons.calendar_today_outlined, size: 28),
-            SizedBox(width: 10),
-            Text('History', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_outlined),
-            onPressed: _showLogoutConfirmDialog,
-          ),
-        ],
+        title: const Text("History"),
+        centerTitle: true,
+        backgroundColor: Colors.deepPurple,
       ),
 
       body: _isLoading
@@ -245,19 +128,20 @@ class _HistoryState extends State<History> {
           : _historyItems.isEmpty
           ? const Center(
               child: Text(
-                'No history found.',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                "No history found",
+                style: TextStyle(color: Colors.grey),
               ),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: _historyItems.length,
-              itemBuilder: (context, index) {
-                final item = _historyItems[index];
-                return _buildHistoryCard(item);
-              },
+          : RefreshIndicator(
+              onRefresh: _fetchHistory,
+              child: ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: _historyItems.length,
+                itemBuilder: (_, i) => _buildHistoryCard(_historyItems[i]),
+              ),
             ),
 
+      // Bottom Navigation
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.deepPurple,
@@ -267,12 +151,23 @@ class _HistoryState extends State<History> {
           ),
         ),
         child: SafeArea(
-          bottom: true,
           child: BottomNavigationBar(
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
             backgroundColor: Colors.transparent,
             elevation: 0,
+            currentIndex: 2,
+            onTap: (i) {
+              if (i == 0) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomePage()),
+                );
+              } else if (i == 1) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RequestPage()),
+                );
+              }
+            },
             selectedItemColor: Colors.white,
             unselectedItemColor: Colors.white70,
             showSelectedLabels: false,
@@ -280,15 +175,15 @@ class _HistoryState extends State<History> {
             items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
-                label: 'Home',
+                label: "Home",
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.notifications_outlined),
-                label: 'Requests',
+                label: "Requests",
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.calendar_today_outlined),
-                label: 'History',
+                icon: Icon(Icons.calendar_month_outlined),
+                label: "History",
               ),
             ],
           ),
@@ -297,181 +192,153 @@ class _HistoryState extends State<History> {
     );
   }
 
-  // =======================================
-  // [NEW] Widget สร้าง Card (ดีไซน์ใหม่จาก .sql)
-  // =======================================
+  // ------------------- UI -------------------
   Widget _buildHistoryCard(HistoryItem item) {
-    final borrowDateStr =
+    final borrow =
         "${item.borrowDate.day}/${item.borrowDate.month}/${item.borrowDate.year}";
-    final returnDateStr =
+    final ret =
         "${item.returnDate.day}/${item.returnDate.month}/${item.returnDate.year}";
 
-    return Card(
-      elevation: 3,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                // [FIX] ต่อ Base URL
-                _imageBaseUrl + item.itemImage,
-                width: 90,
-                height: 90,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: 90,
-                  height: 90,
-                  color: Colors.grey[200],
-                  child: const Icon(
-                    Icons.image_not_supported,
-                    color: Colors.grey,
-                  ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(2, 3)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  _imageBaseUrl + item.itemImage,
+                  width: 70,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.image_not_supported, size: 60),
                 ),
               ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.itemName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 22,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _buildInfoRow(
-                    'Sport:',
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      item.categoryName,
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                  _buildInfoRow(
-                    'Status :',
-                    _buildStatusChip(item.requestStatus),
-                  ),
-                  _buildInfoRow(
-                    'Date Borrowed :',
-                    Text(borrowDateStr, style: const TextStyle(fontSize: 16)),
-                  ),
-                  _buildInfoRow(
-                    'Date Return :',
-                    Text(returnDateStr, style: const TextStyle(fontSize: 16)),
-                  ),
-                  _buildInfoRow(
-                    'Return status :',
-                    _buildReturnStatus(item.returnStatus),
-                  ),
-                  if (item.requestStatus == 'Rejected' &&
-                      item.requestDescription != null) ...[
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Reason',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black54,
+                      item.itemName,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.requestDescription!,
-                      style: const TextStyle(fontSize: 14, color: Colors.red),
-                    ),
+                    const SizedBox(height: 6),
+                    _statusChip(item.requestStatus),
                   ],
-                ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          _info("Sport :", item.categoryName),
+          const SizedBox(height: 6),
+          _info("Borrowed :", borrow),
+          const SizedBox(height: 6),
+          _info("Return :", ret),
+          const SizedBox(height: 6),
+
+          // 🔹 แสดง Return status เฉพาะตอน Approved
+          if (item.requestStatus == "Approved") ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Text(
+                  "Return status :",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  item.returnStatus,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: item.returnStatus == "Overdue"
+                        ? Colors.red
+                        : item.returnStatus == "On time"
+                        ? Colors.green
+                        : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // 🔹 แสดง Reason เฉพาะกรณี Rejected (เหมือนที่แก้ไว้แล้ว)
+          if (item.requestStatus == "Rejected") ...[
+            const SizedBox(height: 12),
+            const Text(
+              "Reason :",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.black26),
+              ),
+              child: Text(
+                item.requestDescription ?? "-",
+                style: const TextStyle(fontSize: 14),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  // Helper Widgets (จากดีไซน์ครั้งก่อน)
-  Widget _buildInfoRow(String label, Widget valueWidget) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.black54,
-              ),
-            ),
-          ),
-          Expanded(child: valueWidget),
         ],
       ),
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    Color chipColor;
-    switch (status) {
-      case 'Approved':
-        chipColor = Colors.green;
-        break;
-      case 'Rejected':
-        chipColor = Colors.red;
-        break;
-      default:
-        chipColor = Colors.grey;
-    }
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Chip(
-        label: Text(
-          status,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        backgroundColor: chipColor,
-        padding: EdgeInsets.zero,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 12.0),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      ),
+  Widget _info(String title, String value) {
+    return Row(
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(width: 6),
+        Expanded(child: Text(value)),
+      ],
     );
   }
 
-  Widget _buildReturnStatus(String status) {
-    Color textColor;
+  Widget _statusChip(String status) {
+    Color color;
     switch (status) {
-      case 'Overdue':
-        textColor = Colors.red;
+      case "Approved":
+        color = Colors.green;
         break;
-      case 'On time':
-        textColor = Colors.green;
+      case "Rejected":
+        color = Colors.red;
         break;
-      case '-':
       default:
-        textColor = Colors.orange;
-        break;
+        color = Colors.orange;
     }
-    return Text(
-      status,
-      style: TextStyle(
-        color: textColor,
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
+
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      child: Text(
+        status,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
