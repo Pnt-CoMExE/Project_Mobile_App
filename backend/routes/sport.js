@@ -1,12 +1,9 @@
 // sport.js
 import express from "express";
 import pool from "../db.js";
-import { authMiddleware } from "../middleware.js";
 
 const router = express.Router();
 
-// [TODO] เพิ่ม middleware ตรวจสอบ token ถ้ามี
-router.use(authMiddleware);
 
 // 1. GET: ดึง Category (หน้า Home) สำหรับ Student
 router.get("/categories", async (req, res) => {
