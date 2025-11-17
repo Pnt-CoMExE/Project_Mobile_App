@@ -1,6 +1,6 @@
 1.import db in your xampp
 
-2.เข้า lib/config/ip.dart เปลี่ยน kServierIp ให้ตรงกับ Wi-Fi,Ethernet IPv4
+2.เข้า lib/config/ip.dart เปลี่ยน kServierIp ให้ตรงกับ Wi-Fi,Ethernet IPv4 กับหน้า lib/lender/approve.dart เปลี่ยน ip ด้วย
 
 -terminal
 3.npm install express

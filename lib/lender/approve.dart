@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 class Approve extends StatefulWidget {
   const Approve({super.key});
@@ -14,13 +15,15 @@ class _ApproveState extends State<Approve> {
   List<Map<String, dynamic>> requests = [];
   bool isLoading = true;
 
-  final String baseUrl = "http://192.168.0.106/xampp/sport_borrow_api";
+  // 🔹 IP ของเครื่องคุณ (แก้ตามจริง)
+  final String baseUrl = kSportBorrowApiBaseUrl;
 
-  int? lenderId; // ← ค่าจริงจาก login
+ int? lenderId ; // <-- รหัส Lender จริงจากตาราง user
 
   @override
   void initState() {
     super.initState();
+    fetchRequests();
     _loadLenderAndFetch();
   }
 
@@ -39,7 +42,7 @@ class _ApproveState extends State<Approve> {
 
     fetchRequests();
   }
-
+  
   /// ดึงรายการ Pending
   Future<void> fetchRequests() async {
     try {
