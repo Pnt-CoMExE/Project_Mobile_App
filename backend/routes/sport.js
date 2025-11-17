@@ -8,7 +8,7 @@ const router = express.Router();
 // 1. GET: ดึง Category (หน้า Home) สำหรับ Student
 router.get("/categories", async (req, res) => {
   try {
-    await autoExpirePendingRequests();
+    // await autoExpirePendingRequests();
     const { studentId } = req.query; // รับ studentId จาก app
     if (!studentId) {
       return res
@@ -57,7 +57,7 @@ router.get("/categories", async (req, res) => {
 // 2. GET: ดึง Item ใน Category (หน้ารายละเอียด) สำหรับ Student
 router.get("/items/:categoryId", async (req, res) => {
   try {
-    await autoExpirePendingRequests();
+    // await autoExpirePendingRequests();
     const { categoryId } = req.params;
     const { studentId } = req.query; // รับ studentId จาก app
     if (!studentId) {
@@ -194,7 +194,7 @@ router.post("/borrow/request", async (req, res) => {
 // 4. GET: ดึง "Request Result" (คำขอที่ยัง Pending) สำหรับ Student
 router.get("/requests/:studentId", async (req, res) => {
   try {
-    await autoExpirePendingRequests();
+    // await autoExpirePendingRequests();
     const { studentId } = req.params;
     const [rows] = await pool.query(
       "SELECT * FROM request_result_view WHERE student_id = ?",
@@ -208,23 +208,23 @@ router.get("/requests/:studentId", async (req, res) => {
 });
 
 // helper: auto-expire Pending requests ที่ค้างข้ามวัน
-async function autoExpirePendingRequests() {
-  try {
-    await pool.query(
-      `UPDATE borrow_request
-       SET request_status = 'Rejected',
-           request_description = CASE
-             WHEN (request_description IS NULL OR request_description = '')
-               THEN 'Auto-cancelled: no action in time'
-             ELSE request_description
-           END
-       WHERE request_status = 'Pending'
-         AND borrow_date < CURDATE();`
-    );
-  } catch (err) {
-    console.error("❌ autoExpirePendingRequests error:", err);
-  }
-}
+// async function autoExpirePendingRequests() {
+//   try {
+//     await pool.query(
+//       `UPDATE borrow_request
+//        SET request_status = 'Rejected',
+//            request_description = CASE
+//              WHEN (request_description IS NULL OR request_description = '')
+//                THEN 'Auto-cancelled: no action in time'
+//              ELSE request_description
+//            END
+//        WHERE request_status = 'Pending'
+//          AND borrow_date < CURDATE();`
+//     );
+//   } catch (err) {
+//     console.error("❌ autoExpirePendingRequests error:", err);
+//   }
+// }
 
 // 5. GET: ดึง "History" (Approved/Rejected) สำหรับ Student
 router.get("/history/:studentId", async (req, res) => {
