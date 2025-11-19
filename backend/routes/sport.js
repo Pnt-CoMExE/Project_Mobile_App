@@ -490,5 +490,303 @@ router.get("/history/staff/:staffId", async (req, res) => {
   }
 });
 
+// ======================================
+//  STAFF: GET All Categories (with count)
+// ======================================
+router.get("/staff/categories", async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        sc.category_id,
+        sc.category_name,
+        sc.category_image,
+        COUNT(si.item_id) AS total_items,
+        SUM(CASE WHEN si.status = 'Available' THEN 1 ELSE 0 END) AS available_count,
+        SUM(CASE WHEN si.status = 'Borrowed' THEN 1 ELSE 0 END) AS borrowed_count,
+        SUM(CASE WHEN si.status = 'Pending' THEN 1 ELSE 0 END) AS pending_count,
+        SUM(CASE WHEN si.status = 'Disable' THEN 1 ELSE 0 END) AS disable_count,
+        CASE
+            WHEN SUM(CASE WHEN si.status = 'Available' THEN 1 ELSE 0 END) > 0 
+                THEN 'Available'
+            WHEN SUM(CASE WHEN si.status = 'Disable' THEN 1 ELSE 0 END) = COUNT(si.item_id)
+                THEN 'Disable'
+            WHEN SUM(CASE WHEN si.status = 'Pending' THEN 1 ELSE 0 END) > 0
+                THEN 'Pending'
+            WHEN SUM(CASE WHEN si.status = 'Borrowed' THEN 1 ELSE 0 END) > 0
+                THEN 'Borrowed'
+            ELSE 'Available'
+        END AS category_status
+      FROM sport_category sc
+      LEFT JOIN sport_item si ON sc.category_id = si.category_id
+      GROUP BY sc.category_id, sc.category_name, sc.category_image
+      ORDER BY sc.category_id ASC
+      `
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("❌ /staff/categories error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// ======================================
+//  STAFF: Add New Category
+// ======================================
+router.post("/staff/category", async (req, res) => {
+  try {
+    const { category_name, category_image } = req.body;
+
+    if (!category_name || !category_image) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing category_name or category_image",
+      });
+    }
+
+    // Check duplicate name
+    const [dup] = await pool.query(
+      "SELECT * FROM sport_category WHERE category_name = ?",
+      [category_name]
+    );
+
+    if (dup.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "This sport category already exists",
+      });
+    }
+
+    const [result] = await pool.query(
+      `
+      INSERT INTO sport_category (category_name, category_image)
+      VALUES (?, ?)
+      `,
+      [category_name, category_image]
+    );
+
+    res.json({
+      success: true,
+      category_id: result.insertId,
+      message: "Category added successfully",
+    });
+  } catch (err) {
+    console.error("❌ /staff/category error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// ======================================
+//  STAFF: Edit Category (Name + Image)
+// ======================================
+router.put("/staff/category/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category_name, category_image } = req.body;
+
+    if (!category_name || !category_image) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing category_name or category_image",
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE sport_category
+      SET category_name = ?, category_image = ?
+      WHERE category_id = ?
+      `,
+      [category_name, category_image, id]
+    );
+
+    res.json({ success: true, message: "Category updated successfully" });
+  } catch (err) {
+    console.error("❌ /staff/category/:id error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// ======================================
+//  STAFF: Change Category Status
+//  Available → Disable (all items)
+// ======================================
+router.put("/staff/category/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["Available", "Disable"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be Available or Disable",
+      });
+    }
+
+    // Update all items in category
+    await pool.query(
+      `
+      UPDATE sport_item
+      SET status = ?
+      WHERE category_id = ?
+      `,
+      [status, id]
+    );
+
+    res.json({
+      success: true,
+      message: `Category status updated to ${status}`,
+    });
+  } catch (err) {
+    console.error("❌ /staff/category/:id/status error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ======================================
+// STAFF: GET Items In Category
+// ======================================
+router.get("/staff/items/:categoryId", async (req, res) => {
+  try {
+    const { categoryId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        item_id,
+        category_id,
+        item_name,
+        item_image,
+        status
+      FROM sport_item
+      WHERE category_id = ?
+      ORDER BY item_id ASC
+      `,
+      [categoryId]
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("❌ /staff/items/:categoryId error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// ======================================
+// STAFF: Add New Item
+// ======================================
+router.post("/staff/item", async (req, res) => {
+  try {
+    const { category_id, item_name, item_image } = req.body;
+
+    if (!category_id || !item_name || !item_image) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing fields",
+      });
+    }
+
+    // ✔ generate item_id อัตโนมัติ
+    const [[{ new_id }]] = await pool.query(
+      `SELECT generate_item_id(?) AS new_id`,
+      [category_id]
+    );
+
+    // ✔ Insert item
+    await pool.query(
+      `
+      INSERT INTO sport_item (item_id, category_id, item_name, item_image, status)
+      VALUES (?, ?, ?, ?, 'Available')
+      `,
+      [new_id, category_id, item_name, item_image]
+    );
+
+    res.json({
+      success: true,
+      item_id: new_id,
+      message: "Item added successfully",
+    });
+
+  } catch (err) {
+    console.error("❌ /staff/item error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// ======================================
+// STAFF: Edit Item (Name + Image)
+// ======================================
+router.put("/staff/item/:itemId", async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { item_name, item_image } = req.body;
+
+    if (!item_name || !item_image) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing item_name or item_image",
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE sport_item
+      SET item_name = ?, item_image = ?
+      WHERE item_id = ?
+      `,
+      [item_name, item_image, itemId]
+    );
+
+    res.json({
+      success: true,
+      message: "Item updated successfully",
+    });
+  } catch (err) {
+    console.error("❌ /staff/item/:itemId error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// ======================================
+// STAFF: Change Item Status (Enable/Disable)
+// ======================================
+router.put("/staff/item/:itemId/status", async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const { status } = req.body;
+
+    if (!["Available", "Disable"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Status must be Available or Disable",
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE sport_item
+      SET status = ?
+      WHERE item_id = ?
+      `,
+      [status, itemId]
+    );
+
+    res.json({
+      success: true,
+      message: `Status changed to ${status}`,
+    });
+
+  } catch (err) {
+    console.error("❌ /staff/item/:itemId/status error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 export default router;

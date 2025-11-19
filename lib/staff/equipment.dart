@@ -1,7 +1,69 @@
 // equipment.dart
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
-// [แก้ไข] เปลี่ยนชื่อ Class จาก Home เป็น EquipmentPage เพื่อไม่ให้ซ้ำกัน
+import 'package:project_mobile_app/config/ip.dart';
+
+final String _apiBaseUrl = kSportApiBaseUrl;
+final String _imageBaseUrl = kImageBaseUrl;
+
+class StaffSportCategory {
+  final int categoryId;
+  final String name;
+  final String image;
+  final int availableCount;
+  final String status; // Available / Disable / Pending / Borrowed
+
+  StaffSportCategory({
+    required this.categoryId,
+    required this.name,
+    required this.image,
+    required this.availableCount,
+    required this.status,
+  });
+
+  factory StaffSportCategory.fromJson(Map<String, dynamic> json) {
+    return StaffSportCategory(
+      categoryId: int.parse(json['category_id'].toString()),
+      name: json['category_name'] ?? '',
+      image: json['category_image'] ?? '',
+      availableCount: int.parse(json['available_count']?.toString() ?? '0'),
+      status: json['category_status'] ?? 'Available',
+    );
+  }
+}
+
+class StaffItem {
+  final String itemId;
+  final int categoryId;
+  final String name;
+  final String image;
+  final String status; // Available / Disable / Pending / Borrowed
+
+  StaffItem({
+    required this.itemId,
+    required this.categoryId,
+    required this.name,
+    required this.image,
+    required this.status,
+  });
+
+  factory StaffItem.fromJson(Map<String, dynamic> json) {
+    return StaffItem(
+      itemId: json['item_id'].toString(),
+      categoryId: int.parse(json['category_id'].toString()),
+      name: json['item_name'] ?? '',
+      image: json['item_image'] ?? '',
+      status: json['status'] ?? 'Available',
+    );
+  }
+}
+
+// =======================================
+// Staff Equipment Page (Category + Item)
+// =======================================
 class EquipmentPage extends StatefulWidget {
   const EquipmentPage({super.key});
 
@@ -9,551 +71,442 @@ class EquipmentPage extends StatefulWidget {
   State<EquipmentPage> createState() => _EquipmentPageState();
 }
 
-// --- ส่วน Model และ Helper (เหมือนเดิม) ---
-enum ItemStatus { available, disable, borrowed, pending }
-
-ButtonStyle _greenBtn() {
-  return ElevatedButton.styleFrom(
-    backgroundColor: Colors.green,
-    foregroundColor: Colors.white,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    elevation: 2,
-  );
-}
-
-class SportItem {
-  String name;
-  final IconData icon;
-  int quantity;
-  ItemStatus status;
-  String? imagePath; // optional local image (for future use)
-  String? itemId; // chosen ID
-
-  SportItem({
-    required this.name,
-    required this.icon,
-    required this.quantity,
-    required this.status,
-    this.imagePath,
-    this.itemId,
-  });
-}
-// --- จบส่วน Model และ Helper ---
-
-// [แก้ไข] เปลี่ยนชื่อ State
 class _EquipmentPageState extends State<EquipmentPage> {
-  // [แก้ไข] ย้าย GlobalKey มาไว้ใน State นี้
-  final GlobalKey<__HomeScreenContentState> _contentKey =
-      GlobalKey<__HomeScreenContentState>();
+  bool _isLoading = true;
+  String? _username;
 
-  // [ลบ] _selectedIndex, _onItemTapped, _showLogoutDialog, _appBarTitle, _appBarIcon
-  // (ทั้งหมดนี้ถูกย้ายไป sdashboard.dart (Wrapper) แล้ว)
+  // category + item
+  List<StaffSportCategory> _categories = [];
+  List<StaffItem> _items = [];
+  StaffSportCategory? _selectedCategory;
 
   @override
-  Widget build(BuildContext context) {
-    // [แก้ไข]
-    // 1. เรายังคง Scaffold ไว้ เพื่อใช้ FloatingActionButton
-    // 2. แต่เราลบ AppBar และ BottomNavigationBar ที่ซ้ำซ้อนออก
-    return Scaffold(
-      // [ลบ] AppBar
-      // [ลบ] Gradient AppBar
+  void initState() {
+    super.initState();
+    _initData();
+  }
 
-      // Body (เหมือนเดิม)
-      body: _HomeScreenContent(key: _contentKey),
+  Future<void> _initData() async {
+    await _loadUser();
+    await _fetchCategories();
+    setState(() => _isLoading = false);
+  }
 
-      // [ลบ] BottomNavigationBar
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _username = prefs.getString('u_username') ?? 'Staff';
+    });
+  }
 
-      // Green Add button (เหมือนเดิม)
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: ElevatedButton(
-        onPressed: () => _contentKey.currentState?.showAddItemDialog(),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
-          elevation: 6,
-        ),
-        child: const Text(
-          'Add',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+  // -----------------------------
+  // API: โหลดรายการกีฬา (Staff)
+  // -----------------------------
+  Future<void> _fetchCategories() async {
+    setState(() => _isLoading = true);
+    try {
+      final res = await http.get(Uri.parse('$_apiBaseUrl/staff/categories'));
+      if (res.statusCode == 200) {
+        final body = json.decode(res.body);
+        final List data = body['data'] as List;
+        setState(() {
+          _categories =
+              data.map((e) => StaffSportCategory.fromJson(e)).toList();
+        });
+      } else {
+        final body = json.decode(res.body);
+        _showSnackBar('Failed to load sports: ${body['message']}',
+            isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+    setState(() => _isLoading = false);
+  }
+
+  // -----------------------------
+  // API: โหลด item ใน category
+  // -----------------------------
+  Future<void> _fetchItemsForCategory(StaffSportCategory cat) async {
+    setState(() {
+      _isLoading = true;
+      _selectedCategory = cat;
+      _items = [];
+    });
+
+    try {
+      final res =
+          await http.get(Uri.parse('$_apiBaseUrl/staff/items/${cat.categoryId}'));
+
+      if (res.statusCode == 200) {
+        final body = json.decode(res.body);
+        final List data = body['data'] as List;
+        setState(() {
+          _items = data.map((e) => StaffItem.fromJson(e)).toList();
+        });
+      } else {
+        final body = json.decode(res.body);
+        _showSnackBar('Failed to load items: ${body['message']}', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  // -----------------------------
+  // API: เพิ่มประเภทกีฬาใหม่
+  // -----------------------------
+  Future<void> _addCategory({
+    required String name,
+    required String imagePath,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_apiBaseUrl/staff/category'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'category_name': name,
+          'category_image': imagePath,
+        }),
+      );
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        _showSnackBar('Add sport success ✅');
+        await _fetchCategories();
+      } else {
+        final body = json.decode(res.body);
+        _showSnackBar('Add failed: ${body['message']}', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  // แก้ไขชื่อ/รูป Category
+  Future<void> _updateCategory({
+    required int categoryId,
+    required String name,
+    required String imagePath,
+  }) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$_apiBaseUrl/staff/category/$categoryId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'category_name': name,
+          'category_image': imagePath,
+        }),
+      );
+
+      if (res.statusCode != 200) {
+        final body = json.decode(res.body);
+        _showSnackBar('Update failed: ${body['message']}', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  // API: เปลี่ยนสถานะ Category Available / Disable
+  Future<void> _updateCategoryStatus({
+    required int categoryId,
+    required String status,
+  }) async {
+    try {
+      final res = await http.put(
+        Uri.parse('$_apiBaseUrl/staff/category/$categoryId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'status': status}),
+      );
+
+      if (res.statusCode != 200) {
+        final body = json.decode(res.body);
+        _showSnackBar('Change status failed: ${body['message']}',
+            isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  // API: Add Item
+  Future<void> _addItem({
+    required StaffSportCategory cat,
+    required String name,
+    required String imagePath,
+    required String status,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_apiBaseUrl/staff/item'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'category_id': cat.categoryId,
+          'item_name': name,
+          'item_image': imagePath,
+        }),
+      );
+
+      if (res.statusCode == 200) {
+        final body = json.decode(res.body);
+        final String newItemId = body['item_id'].toString();
+
+        if (status == 'Disable') {
+          await _updateItemStatus(itemId: newItemId, status: 'Disable');
+        }
+
+        _showSnackBar('Item added ✅');
+        await _fetchItemsForCategory(cat);
+        await _fetchCategories();
+      } else {
+        final body = json.decode(res.body);
+        _showSnackBar('Add item failed: ${body['message']}', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  // API: Edit Item
+  Future<void> _updateItem({
+    required StaffItem item,
+    required String name,
+    required String imagePath,
+    required String status,
+  }) async {
+    try {
+      await http.put(
+        Uri.parse('$_apiBaseUrl/staff/item/${item.itemId}'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'item_name': name,
+          'item_image': imagePath,
+        }),
+      );
+
+      await _updateItemStatus(itemId: item.itemId, status: status);
+
+      _showSnackBar('Item updated ✅');
+      if (_selectedCategory != null) {
+        await _fetchItemsForCategory(_selectedCategory!);
+        await _fetchCategories();
+      }
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  // API: เปลี่ยนสถานะ Item
+  Future<void> _updateItemStatus({
+    required String itemId,
+    required String status,
+  }) async {
+    try {
+      await http.put(
+        Uri.parse('$_apiBaseUrl/staff/item/$itemId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'status': status}),
+      );
+    } catch (e) {
+      _showSnackBar('Error: $e', isError: true);
+    }
+  }
+
+  // SnackBar helper
+  void _showSnackBar(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red : Colors.green,
       ),
     );
   }
-}
 
-// ==========================================================
-// Home Content (list + add overlay + edit overlay)
-// (ส่วนนี้เหมือนเดิมเกือบทั้งหมด)
-// ==========================================================
-class _HomeScreenContent extends StatefulWidget {
-  const _HomeScreenContent({super.key});
-
-  @override
-  State<_HomeScreenContent> createState() => __HomeScreenContentState();
-}
-
-class __HomeScreenContentState extends State<_HomeScreenContent> {
-  final List<SportItem> _items = [
-    SportItem(
-      name: 'Volleyball',
-      icon: Icons.sports_volleyball,
-      quantity: 6,
-      status: ItemStatus.available,
-      itemId: '0601',
-    ),
-    SportItem(
-      name: 'Badminton',
-      icon: Icons.sports_tennis,
-      quantity: 5,
-      status: ItemStatus.disable,
-      itemId: '0602',
-    ),
-    SportItem(
-      name: 'Basketball',
-      icon: Icons.sports_basketball,
-      quantity: 2,
-      status: ItemStatus.borrowed,
-      itemId: '0603',
-    ),
-    SportItem(
-      name: 'Tennis',
-      icon: Icons.sports_tennis,
-      quantity: 6,
-      status: ItemStatus.available,
-      itemId: '0604',
-    ),
-    SportItem(
-      name: 'Petanque',
-      icon: Icons.circle_outlined,
-      quantity: 0,
-      status: ItemStatus.pending,
-      itemId: '0605',
-    ),
-    SportItem(
-      name: 'Futsal',
-      icon: Icons.sports_soccer,
-      quantity: 6,
-      status: ItemStatus.available,
-      itemId: '0606',
-    ),
-  ];
-
-  // ======= ADD OVERLAY (แก้ไข) =======
-  void showAddItemDialog() {
-    final nameCtrl = TextEditingController();
-    final qtyCtrl = TextEditingController(); // Controller สำหรับ Quantity
-    ItemStatus status = ItemStatus.available; // default
-    List<String> errors = [];
-
-    showDialog(
+  // Dialog: ยืนยัน
+  Future<bool> _showConfirmDialog(String message) async {
+    final result = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) {
+      builder: (_) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 24,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: StatefulBuilder(
-            builder: (context, setLocal) {
-              void validateAndSubmit() {
-                final name = nameCtrl.text.trim();
-                final qtyText = qtyCtrl.text.trim();
-
-                final newErrors = <String>[];
-                if (name.isEmpty) newErrors.add('Please fill item name');
-
-                final qty = int.tryParse(qtyText);
-                if (qty == null) {
-                  newErrors.add('Quantity must be a number');
-                } else if (qty < 1) {
-                  newErrors.add('Quantity must more than or equal 1');
-                }
-
-                if (newErrors.isNotEmpty) {
-                  setLocal(() => errors = newErrors);
-                  return;
-                }
-
-                setState(() {
-                  _items.add(
-                    SportItem(
-                      name: name,
-                      icon: Icons.sports_soccer, // Mock icon
-                      quantity: qty!,
-                      status: status,
-                      itemId: 'NEW', // mock
-                    ),
-                  );
-                });
-                Navigator.pop(context);
-              }
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (errors.isNotEmpty) _ErrorPanel(errors: errors),
-
-                    // picture placeholder
-                    GestureDetector(
-                      onTap: () {},
-                      child: _PictureBox(
-                        child: const Text(
-                          'Add picture',
-                          style: TextStyle(color: Colors.black54),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Item name',
-                        style: TextStyle(color: Colors.grey.shade800),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: _input(''),
-                      onChanged: (_) {
-                        if (errors.isNotEmpty) setLocal(() => errors = []);
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Quantity',
-                        style: TextStyle(color: Colors.grey.shade800),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    // [!!! แก้ไข Bug !!!] เพิ่มช่อง Quantity ที่ขาดไป
-                    TextField(
-                      controller: qtyCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: _input(''),
-                      onChanged: (_) {
-                        if (errors.isNotEmpty) setLocal(() => errors = []);
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    // [จบการแก้ไข Bug]
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Status',
-                        style: TextStyle(color: Colors.grey.shade800),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    _StatusDropdown(
-                      value: status,
-                      onChanged: (v) => setLocal(() => status = v),
-                    ),
-
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: validateAndSubmit,
-                        style: _greenBtn(),
-                        child: const Text(
-                          'Add',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  // ======= EDIT OVERLAY (เหมือนเดิม) =======
-  void _openEditOverlay(SportItem item) {
-    // 1) ถ้า borrowed -> แจ้งเตือนใน overlay และจบ
-    if (item.status == ItemStatus.borrowed) {
-      showDialog(
-        context: context,
-        builder: (_) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.info_outline, size: 40, color: Colors.red),
-                const SizedBox(height: 12),
-                const Text(
-                  "This item has borrow, can't edit for now",
+                Text(
+                  message,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Close'),
+                const SizedBox(height: 18),
+                const Icon(
+                  Icons.info_outline,
+                  size: 48,
+                  color: Colors.black54,
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  width: 140,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text(
+                      'Confirm',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-      );
-      return;
-    }
+        );
+      },
+    );
+    return result ?? false;
+  }
 
-    // mock: รายการ ID และสถานะของแต่ละ ID (รอเชื่อม DB)
-    // เปลี่ยนได้ในภายหลังให้ดึงจากฐานข้อมูลจริง
-    final Map<String, ItemStatus> idStatus = {
-      '0601': ItemStatus.available,
-      '0602': ItemStatus.disable,
-      '0603': ItemStatus.disable,
-      '0604': ItemStatus.available,
-    };
+  // Dialog: Add Sport (Category)
+  Future<void> _showAddCategoryDialog() async {
+    final nameCtrl = TextEditingController();
+    String imagePath = '';
 
-    String selectedId = item.itemId ?? idStatus.keys.first;
-    String name = item.name;
-    ItemStatus status =
-        (item.status == ItemStatus.available ||
-            item.status == ItemStatus.disable)
-        ? item.status
-        : ItemStatus.available;
-
-    List<String> errors = [];
-
-    showDialog(
+    await showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) {
+      builder: (_) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 20,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: StatefulBuilder(
-            builder: (context, setLocal) {
-              bool allDisabled = idStatus.values.every(
-                (s) => s == ItemStatus.disable,
-              );
-
-              // ถ้า ID ทั้งหมด disable → บังคับ status = disable และเปลี่ยนปุ่ม Edit เป็นสีเขียว
-              if (allDisabled) status = ItemStatus.disable;
-
-              void onConfirm() {
-                // ยืนยันจริงอีกชั้น
-                showDialog(
-                  context: context,
-                  builder: (_) => Dialog(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Are you confirm to edit',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 10),
-                          const Icon(Icons.error_outline, size: 36),
-                          const SizedBox(height: 14),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              style: _greenBtn(),
-                              onPressed: () {
-                                // save changes
-                                setState(() {
-                                  item.name = name;
-                                  item.itemId = selectedId;
-                                  item.status = status;
-                                });
-                                Navigator.pop(context); // close confirm
-                                Navigator.pop(context); // close edit
-                              },
-                              child: const Text('Confirm'),
-                            ),
-                          ),
-                        ],
+            builder: (context, setStateDialog) {
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              }
-
-              void trySubmit() {
-                final newErrors = <String>[];
-                if (name.trim().isEmpty) newErrors.add('Please fill item name');
-
-                // future place to add more validation (e.g., ID rules)
-
-                if (newErrors.isNotEmpty) {
-                  setLocal(() => errors = newErrors);
-                  return;
-                }
-                onConfirm();
-              }
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Edit item',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 10),
-
-                    if (errors.isNotEmpty) _ErrorPanel(errors: errors),
-
-                    // picture
-                    GestureDetector(
-                      onTap: () {
-                        // TODO: image picker
-                      },
-                      child: _PictureBox(
-                        child: item.imagePath == null
-                            ? const Icon(
-                                Icons.image,
-                                size: 32,
-                                color: Colors.black54,
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.grey.shade400, width: 1),
+                          color: Colors.grey.shade100,
+                        ),
+                        child: imagePath.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Add picture',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
                               )
-                            : Image.asset(item.imagePath!, fit: BoxFit.cover),
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  _imageBaseUrl + imagePath,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(Icons.image_not_supported),
+                                  ),
+                                ),
+                              ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-
-                    // Item name
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Item name',
-                        style: TextStyle(color: Colors.grey.shade800),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: TextEditingController(text: name),
-                      onChanged: (v) {
-                        name = v;
-                        if (errors.isNotEmpty) setLocal(() => errors = []);
-                      },
-                      decoration: _input(''),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Item ID (dropdown) - เชื่อมฐานข้อมูลทีหลัง
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Item ID',
-                        style: TextStyle(color: Colors.grey.shade800),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade400),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: DropdownButton<String>(
-                        value: selectedId,
-                        isExpanded: true,
-                        underline: const SizedBox.shrink(),
-                        items: idStatus.keys
-                            .map(
-                              (id) =>
-                                  DropdownMenuItem(value: id, child: Text(id)),
-                            )
-                            .toList(),
-                        onChanged: (v) {
-                          if (v == null) return;
-                          setLocal(() {
-                            selectedId = v;
-                            // สามารถปรับ auto-status ตาม id ได้ถ้าต้องการ
-                          });
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Image path (ex. images/swim.png)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (val) {
+                          setStateDialog(() => imagePath = val.trim());
                         },
                       ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Status (2 ตัวเลือก)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Status',
-                        style: TextStyle(color: Colors.grey.shade800),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    AbsorbPointer(
-                      absorbing:
-                          allDisabled, // ถ้า ID ทั้งหมด disable → ห้ามแก้สถานะ
-                      child: Opacity(
-                        opacity: allDisabled ? 0.7 : 1,
-                        child: _StatusDropdown(
-                          value: status,
-                          onChanged: (v) => setLocal(() => status = v),
+                      const SizedBox(height: 20),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Sport Name',
+                          style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w500),
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // Edit button (แดงปกติ, เขียวเมื่อ allDisabled)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: trySubmit,
-                        style: allDisabled
-                            ? _greenBtn()
-                            : ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                elevation: 2,
-                              ),
-                        child: const Text(
-                          'Edit',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: 150,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () async {
+                            final ok = await _showConfirmDialog(
+                                'Are you confirm to add new sport?');
+                            if (!ok) return;
+
+                            if (nameCtrl.text.trim().isEmpty ||
+                                imagePath.isEmpty) {
+                              _showSnackBar(
+                                  'Please fill name and image path',
+                                  isError: true);
+                              return;
+                            }
+                            Navigator.pop(context);
+                            await _addCategory(
+                              name: nameCtrl.text.trim(),
+                              imagePath: imagePath,
+                            );
+                          },
+                          child: const Text(
+                            'Add',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             },
@@ -563,146 +516,908 @@ class __HomeScreenContentState extends State<_HomeScreenContent> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      // [แก้ไข] เพิ่ม Padding ด้านล่าง เพื่อไม่ให้ FAB (ปุ่ม Add) บัง
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 90),
-      itemCount: _items.length,
-      itemBuilder: (context, index) {
-        final item = _items[index];
-        return Card(
-          elevation: 3,
-          shadowColor: Colors.grey.withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ListTile(
-            onTap: () => _openEditOverlay(item), // ✅ แตะเพื่อแก้ไข
-            leading: Icon(item.icon, size: 40, color: Colors.grey[700]),
-            title: Text(
-              item.name,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text("Qty: ${item.quantity} | ID: ${item.itemId ?? '-'}"),
-            trailing: Chip(
-              label: Text(
-                item.status.name.toUpperCase(),
-                style: TextStyle(
-                  color: item.status == ItemStatus.pending
-                      ? Colors.black
-                      : Colors.white,
+  // Dialog: Edit Sport (Category) — ลบ status radio ตามข้อ 1
+  Future<void> _showEditCategoryDialog(StaffSportCategory cat) async {
+    final nameCtrl = TextEditingController(text: cat.name);
+    String imagePath = cat.image;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: StatefulBuilder(
+            builder: (context, setStateDialog) {
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.grey.shade400, width: 1),
+                          color: Colors.grey.shade100,
+                        ),
+                        child: imagePath.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Add picture',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  _imageBaseUrl + imagePath,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(Icons.image_not_supported),
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'You can change image.',
+                        style: TextStyle(fontSize: 12, color: Colors.black54),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Image path (ex. images/swim.png)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        controller: TextEditingController(text: imagePath),
+                        onChanged: (val) {
+                          setStateDialog(() => imagePath = val.trim());
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Sport name',
+                          style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: 150,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () async {
+                            final ok = await _showConfirmDialog(
+                                'Are you confirm to edit?');
+                            if (!ok) return;
+
+                            if (nameCtrl.text.trim().isEmpty ||
+                                imagePath.isEmpty) {
+                              _showSnackBar(
+                                  'Please fill name and image path',
+                                  isError: true);
+                              return;
+                            }
+
+                            Navigator.pop(context);
+
+                            await _updateCategory(
+                              categoryId: cat.categoryId,
+                              name: nameCtrl.text.trim(),
+                              imagePath: imagePath,
+                            );
+
+                            // ❌ ไม่เรียก _updateCategoryStatus แล้ว (ตามข้อ 1)
+                            await _fetchCategories();
+                            _showSnackBar('Edit sport success ✅');
+                          },
+                          child: const Text(
+                            'Edit',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              backgroundColor: _getColor(item.status),
-            ),
+              );
+            },
           ),
         );
       },
     );
   }
 
-  Color _getColor(ItemStatus s) => switch (s) {
-    ItemStatus.available => Colors.green.shade600,
-    ItemStatus.disable => Colors.red.shade600,
-    ItemStatus.borrowed => Colors.blue.shade600,
-    ItemStatus.pending => Colors.yellow.shade700,
-  };
-}
+  // Dialog: Add Item
+  Future<void> _showAddItemDialog(StaffSportCategory cat) async {
+    final nameCtrl = TextEditingController();
+    String imagePath = '';
+    String status = 'Available';
 
-// ---------- small UI helpers (เหมือนเดิม) ----------
-InputDecoration _input(String hint) => InputDecoration(
-  hintText: hint, // '' for empty hint
-  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-);
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: StatefulBuilder(
+            builder: (context, setStateDialog) {
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.grey.shade400, width: 1),
+                          color: Colors.grey.shade100,
+                        ),
+                        child: imagePath.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Add picture',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  _imageBaseUrl + imagePath,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(Icons.image_not_supported),
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText:
+                              'Image path (ex. images/badminton.png)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        onChanged: (val) {
+                          setStateDialog(() => imagePath = val.trim());
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Item name',
+                          style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Status',
+                          style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      RadioListTile<String>(
+                        title: const Text('Available'),
+                        value: 'Available',
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        groupValue: status,
+                        onChanged: (v) {
+                          setStateDialog(() => status = v!);
+                        },
+                      ),
+                      RadioListTile<String>(
+                        title: const Text('Disable'),
+                        value: 'Disable',
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        groupValue: status,
+                        onChanged: (v) {
+                          setStateDialog(() => status = v!);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: 150,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () async {
+                            if (nameCtrl.text.trim().isEmpty ||
+                                imagePath.isEmpty) {
+                              _showSnackBar(
+                                  'Please fill item name and image path',
+                                  isError: true);
+                              return;
+                            }
+                            final ok = await _showConfirmDialog(
+                                'Are you confirm to add new item?');
+                            if (!ok) return;
 
-class _StatusDropdown extends StatelessWidget {
-  final ItemStatus value;
-  final ValueChanged<ItemStatus> onChanged;
-  const _StatusDropdown({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade400),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: DropdownButton<ItemStatus>(
-        value: value,
-        isExpanded: true,
-        underline: const SizedBox.shrink(),
-        items: const [
-          DropdownMenuItem(
-            value: ItemStatus.available,
-            child: Text('Available'),
+                            Navigator.pop(context);
+                            await _addItem(
+                              cat: cat,
+                              name: nameCtrl.text.trim(),
+                              imagePath: imagePath,
+                              status: status,
+                            );
+                          },
+                          child: const Text(
+                            'Add Item',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
-          DropdownMenuItem(value: ItemStatus.disable, child: Text('Disable')),
+        );
+      },
+    );
+  }
+
+  // Dialog: Edit Item
+  Future<void> _showEditItemDialog(StaffItem item) async {
+    // ❗ ตามข้อ 2: บล็อกถ้า Borrowed หรือ Pending
+    if (item.status == 'Borrowed' || item.status == 'Pending') {
+      _showSnackBar("Can't edit this item at borrowed or pending", isError: true);
+      return;
+    }
+
+    final nameCtrl = TextEditingController(text: item.name);
+    String imagePath = item.image;
+    String status =
+        (item.status == 'Disable' || item.status == 'Available')
+            ? item.status
+            : 'Available';
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: StatefulBuilder(
+            builder: (context, setStateDialog) {
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.grey.shade400, width: 1),
+                          color: Colors.grey.shade100,
+                        ),
+                        child: imagePath.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Add picture',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  _imageBaseUrl + imagePath,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (c, e, s) => const Center(
+                                    child: Icon(Icons.image_not_supported),
+                                  ),
+                                ),
+                              ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        decoration: const InputDecoration(
+                          labelText:
+                              'Image path (ex. images/badminton.png)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        controller: TextEditingController(text: imagePath),
+                        onChanged: (val) {
+                          setStateDialog(() => imagePath = val.trim());
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Item name',
+                          style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Status',
+                          style: TextStyle(
+                              color: Colors.grey.shade800,
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      RadioListTile<String>(
+                        title: const Text('Available'),
+                        value: 'Available',
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        groupValue: status,
+                        onChanged: (v) {
+                          setStateDialog(() => status = v!);
+                        },
+                      ),
+                      RadioListTile<String>(
+                        title: const Text('Disable'),
+                        value: 'Disable',
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        groupValue: status,
+                        onChanged: (v) {
+                          setStateDialog(() => status = v!);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: 150,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          onPressed: () async {
+                            if (nameCtrl.text.trim().isEmpty ||
+                                imagePath.isEmpty) {
+                              _showSnackBar(
+                                  'Please fill item name and image path',
+                                  isError: true);
+                              return;
+                            }
+                            final ok = await _showConfirmDialog(
+                                'Are you confirm to edit item?');
+                            if (!ok) return;
+
+                            Navigator.pop(context);
+                            await _updateItem(
+                              item: item,
+                              name: nameCtrl.text.trim(),
+                              imagePath: imagePath,
+                              status: status,
+                            );
+                          },
+                          child: const Text(
+                            'Save Edit',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  // -----------------------------
+  // UI
+  // -----------------------------
+  @override
+  Widget build(BuildContext context) {
+    final bool showItemList = _selectedCategory != null;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F6),
+      body: Column(
+        children: [
+          _buildHeader(showItemList),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: showItemList
+                        ? _buildItemList()
+                        : _buildCategoryList(),
+                  ),
+          ),
         ],
-        onChanged: (v) {
-          if (v != null) onChanged(v);
-        },
       ),
     );
   }
-}
 
-class _PictureBox extends StatelessWidget {
-  final Widget child;
-  const _PictureBox({required this.child});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade400),
+  Widget _buildHeader(bool showItemList) {
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            if (showItemList)
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.deepPurple),
+                onPressed: () {
+                  setState(() {
+                    _selectedCategory = null;
+                    _items = [];
+                  });
+                },
+              )
+            else
+              const SizedBox(width: 8),
+            Text(
+              showItemList ? _selectedCategory?.name ?? '' : "",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
       ),
-      child: Center(child: child),
     );
   }
-}
 
-class _ErrorPanel extends StatelessWidget {
-  final List<String> errors;
-  const _ErrorPanel({required this.errors});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.red.shade50,
-        border: Border.all(color: Colors.red.shade200),
-        borderRadius: BorderRadius.circular(10),
-      ),
+  Widget _buildCategoryList() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: errors
-            .map(
-              (e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              ),
+              onPressed: _showAddCategoryDialog,
+              child: const Text(
+                'Add Sport',
+                style:
+                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildLegend(),
+          const SizedBox(height: 18),
+          if (_categories.isEmpty)
+            const Center(child: Text('No sports found.'))
+          else
+            Column(
+              children: _categories
+                  .map(
+                    (c) => _buildCategoryCard(c),
+                  )
+                  .toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegend() => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const Text(
+              "Sports Item status.",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _dot("Available", Colors.green),
+                _dot("Disable", Colors.red),
+                _dot("Pending", Colors.yellow.shade700),
+                _dot("Borrowed", Colors.blue),
+              ],
+            ),
+          ],
+        ),
+      );
+
+  Widget _dot(String text, Color color) => Row(
+        children: [
+          Container(
+            width: 14,
+            height: 14,
+            decoration:
+                BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 5),
+          Text(text, style: const TextStyle(fontSize: 13)),
+        ],
+      );
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'Available':
+        return Colors.green;
+      case 'Disable':
+        return Colors.red;
+      case 'Pending':
+        return Colors.yellow.shade700;
+      case 'Borrowed':
+        return Colors.blue;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildCategoryCard(StaffSportCategory cat) {
+    return InkWell(
+      onTap: () => _fetchItemsForCategory(cat),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          color: const Color(0xFFF4F1F7),
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  _imageBaseUrl + cat.image,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) => Container(
+                    width: 80,
+                    height: 80,
+                    color: Colors.grey[200],
+                    child: const Icon(Icons.image_not_supported),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('• ', style: TextStyle(color: Colors.red)),
-                    Expanded(
-                      child: Text(
-                        e,
-                        style: const TextStyle(color: Colors.red, height: 1.2),
+                    Text(
+                      cat.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      width: 45,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.white,
+                      ),
+                      child: Center(
+                        child: Text(
+                          cat.availableCount.toString(),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            )
-            .toList(),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    width: 80,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      onPressed: () => _showEditCategoryDialog(cat),
+                      child: const Text(
+                        'Edit',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: _statusColor(cat.status),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    child: Text(
+                      cat.status,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _buildItemList() {
+    final cat = _selectedCategory;
+    if (cat == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              ),
+              onPressed: () => _showAddItemDialog(cat),
+              child: const Text(
+                'Add Item',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: _items.isEmpty
+              ? const Center(child: Text('No items in this category.'))
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _items.length,
+                  itemBuilder: (context, i) {
+                    final item = _items[i];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      elevation: 3,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: InkWell(
+                        onTap: () => _showEditItemDialog(item),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          color: const Color(0xFFF4F1F7),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.network(
+                                  _imageBaseUrl + item.image,
+                                  width: 70,
+                                  height: 70,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 70,
+                                    height: 70,
+                                    color: Colors.grey.shade200,
+                                    child: const Icon(Icons.broken_image),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  item.name,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  SizedBox(
+                                    width: 80,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        padding:
+                                            const EdgeInsets.symmetric(vertical: 6),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                      ),
+                                      onPressed: () => _showEditItemDialog(item),
+                                      child: const Text(
+                                        'Edit',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _statusColor(item.status),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      item.status,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
