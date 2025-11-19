@@ -8,7 +8,7 @@ const router = express.Router();
 // 1. GET: ดึง Category (หน้า Home) สำหรับ Student
 router.get("/categories", async (req, res) => {
   try {
-    await autoExpirePendingRequests();
+    // await autoExpirePendingRequests();
     const { studentId } = req.query; // รับ studentId จาก app
     if (!studentId) {
       return res
@@ -57,7 +57,7 @@ router.get("/categories", async (req, res) => {
 // 2. GET: ดึง Item ใน Category (หน้ารายละเอียด) สำหรับ Student
 router.get("/items/:categoryId", async (req, res) => {
   try {
-    await autoExpirePendingRequests();
+    // await autoExpirePendingRequests();
     const { categoryId } = req.params;
     const { studentId } = req.query; // รับ studentId จาก app
     if (!studentId) {
@@ -194,7 +194,7 @@ router.post("/borrow/request", async (req, res) => {
 // 4. GET: ดึง "Request Result" (คำขอที่ยัง Pending) สำหรับ Student
 router.get("/requests/:studentId", async (req, res) => {
   try {
-    await autoExpirePendingRequests();
+    // await autoExpirePendingRequests();
     const { studentId } = req.params;
     const [rows] = await pool.query(
       "SELECT * FROM request_result_view WHERE student_id = ?",
@@ -208,23 +208,23 @@ router.get("/requests/:studentId", async (req, res) => {
 });
 
 // helper: auto-expire Pending requests ที่ค้างข้ามวัน
-async function autoExpirePendingRequests() {
-  try {
-    await pool.query(
-      `UPDATE borrow_request
-       SET request_status = 'Rejected',
-           request_description = CASE
-             WHEN (request_description IS NULL OR request_description = '')
-               THEN 'Auto-cancelled: no action in time'
-             ELSE request_description
-           END
-       WHERE request_status = 'Pending'
-         AND borrow_date < CURDATE();`
-    );
-  } catch (err) {
-    console.error("❌ autoExpirePendingRequests error:", err);
-  }
-}
+// async function autoExpirePendingRequests() {
+//   try {
+//     await pool.query(
+//       `UPDATE borrow_request
+//        SET request_status = 'Rejected',
+//            request_description = CASE
+//              WHEN (request_description IS NULL OR request_description = '')
+//                THEN 'Auto-cancelled: no action in time'
+//              ELSE request_description
+//            END
+//        WHERE request_status = 'Pending'
+//          AND borrow_date < CURDATE();`
+//     );
+//   } catch (err) {
+//     console.error("❌ autoExpirePendingRequests error:", err);
+//   }
+// }
 
 // 5. GET: ดึง "History" (Approved/Rejected) สำหรับ Student
 router.get("/history/:studentId", async (req, res) => {
@@ -356,6 +356,137 @@ router.get("/", async (req, res) => {
   } catch (err) {
     console.error("❌ Dashboard error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 9. GET: รายการอุปกรณ์ที่ "กำลังถูกยืม" สำหรับหน้า Return (Approved + ยังไม่คืน)
+router.get("/return/list", async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        br.request_id,
+        br.item_id,
+        si.item_name,
+        sc.category_name,
+        si.item_image,
+        u.u_username AS username,
+        br.borrow_date,
+        br.return_date
+      FROM borrow_request br
+      JOIN sport_item si ON br.item_id = si.item_id
+      JOIN sport_category sc ON si.category_id = sc.category_id
+      JOIN user u ON br.student_id = u.u_id
+      WHERE br.request_status = 'Approved'
+        AND br.actual_return_date IS NULL
+      ORDER BY br.borrow_date DESC
+      `
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("❌ /return/list error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+
+// 10. POST: Staff กดคืนของ → บันทึก actual_return_date + staff_id
+router.post("/return/confirm", async (req, res) => {
+  const { request_id, staff_id } = req.body;
+
+  if (!request_id || !staff_id) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing request_id or staff_id" });
+  }
+
+  try {
+    // ✅ ตรวจสอบว่ามี request นี้และยังไม่คืน
+    const [rows] = await pool.query(
+      `SELECT request_id, request_status, actual_return_date
+       FROM borrow_request
+       WHERE request_id = ?`,
+      [request_id]
+    );
+
+    if (!rows.length) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Request not found" });
+    }
+
+    const reqRow = rows[0];
+
+    if (reqRow.request_status !== "Approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Only approved requests can be returned",
+      });
+    }
+
+    if (reqRow.actual_return_date) {
+      return res.status(400).json({
+        success: false,
+        message: "This item has already been returned",
+      });
+    }
+
+    // ✅ อัปเดตวันคืนจริง + staff_id (คนที่กด RETURN)
+    await pool.query(
+      `UPDATE borrow_request
+       SET actual_return_date = CURDATE(),
+           staff_id = ?
+       WHERE request_id = ?`,
+      [staff_id, request_id]
+    );
+
+    // จากนี้ Trigger ใน DB จะ:
+    // - ตั้งค่า return_status (On time / Overdue)
+    // - เปลี่ยน sport_item.status = 'Available'
+
+    res.json({ success: true, message: "Return recorded successfully" });
+  } catch (err) {
+    console.error("❌ /return/confirm error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// 11. GET: ประวัติการคืนของเฉพาะ staff คนหนึ่ง (ใช้ใน StaffHistory)
+router.get("/history/staff/:staffId", async (req, res) => {
+  try {
+    const { staffId } = req.params;
+
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        br.request_id,
+        br.item_id,
+        sc.category_name,         -- ⭐ ชื่อหมวดหมู่
+        si.item_name,
+        si.item_image,
+        br.borrow_date,
+        br.actual_return_date,
+        stu.u_username AS username,      -- ชื่อนักศึกษา
+        lend.u_username AS lender_name,  -- คนอนุมัติ
+        stf.u_username AS staff_name     -- Staff ที่รับคืน
+      FROM borrow_request br
+      JOIN sport_item si ON br.item_id = si.item_id
+      JOIN sport_category sc ON si.category_id = sc.category_id   -- ⭐ ต้องมี JOIN นี้
+      JOIN user stu ON br.student_id = stu.u_id
+      LEFT JOIN user lend ON br.lender_id = lend.u_id
+      LEFT JOIN user stf ON br.staff_id = stf.u_id
+      WHERE br.actual_return_date IS NOT NULL
+        AND br.staff_id = ?
+      ORDER BY br.request_id DESC
+      `,
+      [staffId]
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("❌ /history/staff error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

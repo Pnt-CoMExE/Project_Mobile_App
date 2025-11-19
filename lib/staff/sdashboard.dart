@@ -1,14 +1,17 @@
+// sdashboard.dart (เวอร์ชันใช้ bottom nav 4 tab แบบ sdashboard)
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // For the graph
-import 'package:shared_preferences/shared_preferences.dart'; // For Logout
+import 'package:fl_chart/fl_chart.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// [IMPORTANT] Import the other pages as "content"
+// ✨ ใช้หน้า content แบบเดียวกับ sdashboard
 import 'equipment.dart';
 import 'return.dart';
 import 'history.dart';
 
-// This is the "Main" (Wrapper) page for Staff
-// It controls the BottomNavBar and IndexedStack
+import 'package:project_mobile_app/config/ip.dart';
+
 class Sdashboard extends StatefulWidget {
   const Sdashboard({super.key});
 
@@ -19,78 +22,39 @@ class Sdashboard extends StatefulWidget {
 class _SdashboardState extends State<Sdashboard> {
   int _selectedIndex = 0; // 0: Dashboard, 1: Equipment, 2: Return, 3: History
 
-  // [MODIFIED] Create a list of "content" pages to display
+  // ✅ ใช้ 4 หน้า content ตามที่ต้องการ
   final List<Widget> _widgetOptions = <Widget>[
-    const _DashboardContent(), // 0: The graph content (defined below)
-    const EquipmentPage(), // 1: Content from equipment.dart
-    const ReturnPage(), // 2: Content from return.dart
-    const HistoryPage(), // 3: Content from history.dart
+    const _DashboardContent(),          // 0
+    const EquipmentPage(),             // 1
+    const ReturnEquipmentScreen(),     // 2
+    const StaffHistory(),               // 3
   ];
 
-  // [MODIFIED] Correct Logout function
+  // ==========================
+  // Logout Dialog
+  // ==========================
   void _showLogoutDialog() {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.0),
-          ),
-          title: const Text(
-            'Are you sure to Logout',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                size: 52,
-                color: Colors.grey[700],
-              ),
-            ],
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Are you sure to Logout?', textAlign: TextAlign.center),
           actionsAlignment: MainAxisAlignment.center,
-          actions: <Widget>[
+          actions: [
             TextButton(
-              child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(dialogContext),
             ),
-            const SizedBox(width: 8),
             ElevatedButton.icon(
-              icon: const Icon(Icons.logout, color: Colors.white, size: 20),
-              label: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade600,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20.0),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-              ),
+              icon: const Icon(Icons.logout, color: Colors.white),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade600),
               onPressed: () async {
-                // 1. Clear Token
                 final prefs = await SharedPreferences.getInstance();
-                await prefs.clear(); // Clear token, role
-
-                // 2. Close Dialog
-                if (mounted) Navigator.of(dialogContext).pop();
-
-                // 3. Go back to Login page
+                await prefs.clear();
                 if (mounted) {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/login', // Go back to Login
-                    (Route<dynamic> route) => false, // Clear all old pages
-                  );
+                  Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
                 }
               },
             ),
@@ -100,14 +64,11 @@ class _SdashboardState extends State<Sdashboard> {
     );
   }
 
-  // [MODIFIED] Function to switch tabs
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
+  // ==========================
+  // Bottom Nav + AppBar Logic
+  // ==========================
+  void _onItemTapped(int index) => setState(() => _selectedIndex = index);
 
-  // [MODIFIED] Helper for dynamic AppBar title
   String get _appBarTitle {
     switch (_selectedIndex) {
       case 0:
@@ -119,11 +80,10 @@ class _SdashboardState extends State<Sdashboard> {
       case 3:
         return 'History';
       default:
-        return 'Staff';
+        return 'Lender';
     }
   }
 
-  // [MODIFIED] Helper for dynamic AppBar icon
   IconData get _appBarIcon {
     switch (_selectedIndex) {
       case 0:
@@ -142,7 +102,9 @@ class _SdashboardState extends State<Sdashboard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Gradient AppBar
+      // =======================
+      // Gradient AppBar แบบ sdashboard
+      // =======================
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: SafeArea(
@@ -155,27 +117,20 @@ class _SdashboardState extends State<Sdashboard> {
               ),
             ),
             child: AppBar(
-              // =============================================
-              // [FIX] นี่คือจุดที่แก้ไขครับ
-              // =============================================
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: Icon(_appBarIcon, color: Colors.white),
               title: Text(
                 _appBarTitle,
                 style: const TextStyle(
-                  color: Colors.white, // บังคับให้ Title เป็นสีขาว
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              // =============================================
-              leading: Icon(_appBarIcon, color: Colors.white),
-              backgroundColor: Colors.transparent,
-              elevation: 0,
               actions: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
-                    onPressed: _showLogoutDialog,
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  onPressed: _showLogoutDialog,
                 ),
               ],
             ),
@@ -183,7 +138,9 @@ class _SdashboardState extends State<Sdashboard> {
         ),
       ),
 
-      // [FIX v2] Gradient BottomNavigationBar (Wrapped in SafeArea)
+      // =======================
+      // BottomNavigationBar 4 tab
+      // =======================
       bottomNavigationBar: SafeArea(
         child: Container(
           height: 60,
@@ -204,7 +161,9 @@ class _SdashboardState extends State<Sdashboard> {
               topRight: Radius.circular(20),
             ),
             child: Theme(
-              data: Theme.of(context).copyWith(canvasColor: Colors.transparent),
+              data: Theme.of(context).copyWith(
+                canvasColor: Colors.transparent,
+              ),
               child: BottomNavigationBar(
                 backgroundColor: Colors.transparent,
                 elevation: 0,
@@ -219,7 +178,10 @@ class _SdashboardState extends State<Sdashboard> {
                     icon: Icon(Icons.wifi_tethering),
                     label: '',
                   ),
-                  BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.home),
+                    label: '',
+                  ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.access_time_filled),
                     label: '',
@@ -235,136 +197,164 @@ class _SdashboardState extends State<Sdashboard> {
         ),
       ),
 
-      // [MODIFIED] Use IndexedStack to switch "content"
-      body: IndexedStack(index: _selectedIndex, children: _widgetOptions),
+      // =======================
+      // ใช้ IndexedStack เหมือนเดิม
+      // =======================
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _widgetOptions,
+      ),
     );
   }
 }
 
 // ==========================================================
-// Dashboard Content (The content for Tab 0)
+// 📊 Dashboard Content (Connected to API)
 // ==========================================================
-class _DashboardContent extends StatelessWidget {
+class _DashboardContent extends StatefulWidget {
   const _DashboardContent();
 
   @override
+  State<_DashboardContent> createState() => _DashboardContentState();
+}
+
+class _DashboardContentState extends State<_DashboardContent> {
+  bool loading = true;
+
+  int available = 0, notAvailable = 0, pending = 0, borrowed = 0;
+  int totalSports = 0, totalItems = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDashboard();
+
+    // 🔥 Auto refresh dashboard ทุก 3 วินาที
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return false;
+      await fetchDashboard();
+      return true;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (ModalRoute.of(context)?.isCurrent == true) {
+      fetchDashboard();
+    }
+  }
+
+  Future<void> fetchDashboard() async {
+    try {
+      final url = Uri.parse(kDashApiBaseUrl);
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        final status = data['status_summary'];
+
+        if (!mounted) return;
+
+        setState(() {
+          available = int.tryParse(status['available'].toString()) ?? 0;
+          borrowed = int.tryParse(status['borrowed'].toString()) ?? 0;
+          pending = int.tryParse(status['pending'].toString()) ?? 0;
+          notAvailable = int.tryParse(status['disable'].toString()) ?? 0;
+
+          totalSports = data['total_sports'] ?? 0;
+          totalItems = data['total_items'] ?? 0;
+          loading = false;
+        });
+      }
+    } catch (e) {
+      print("❌ Error fetching dashboard: $e");
+      setState(() => loading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // === donut chart card ===
+          // ===== donut chart card =====
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 5,
-                  offset: Offset(2, 2),
-                ),
-              ],
-            ),
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: _cardDecoration(),
             child: Column(
               children: [
                 SizedBox(
-                  height: 180,
-                  child: Stack(
-                    children: [
-                      PieChart(
-                        PieChartData(
-                          centerSpaceRadius: 35,
-                          sectionsSpace: 2,
-                          sections: [
-                            PieChartSectionData(
-                              color: Colors.green,
-                              value: 17,
-                              title: '',
-                            ),
-                            PieChartSectionData(
-                              color: Colors.red,
-                              value: 9,
-                              title: '',
-                            ),
-                            PieChartSectionData(
-                              color: Colors.yellow,
-                              value: 10,
-                              title: '',
-                            ),
-                            PieChartSectionData(
-                              color: Colors.blue,
-                              value: 7,
-                              title: '',
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(top: 10, left: 25, child: _numberBox("17")),
-                      Positioned(top: 15, right: 40, child: _numberBox("9")),
-                      Positioned(
-                        bottom: 25,
-                        right: 40,
-                        child: _numberBox("10"),
-                      ),
-                      Positioned(bottom: 30, left: 25, child: _numberBox("7")),
-                    ],
+                  height: 220,
+                  child: PieChart(
+                    PieChartData(
+                      startDegreeOffset: -90,
+                      sectionsSpace: 2,
+                      centerSpaceRadius: 55,
+                      borderData: FlBorderData(show: false),
+                      sections: [
+                        _buildSection(Colors.green, available, "Available"),
+                        _buildSection(Colors.red, notAvailable, "Not Available"),
+                        _buildSection(Colors.yellow.shade700, pending, "Pending"),
+                        _buildSection(Colors.blue, borrowed, "Borrowed"),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: const [
-                    LegendItem(color: Colors.green, text: "Available :"),
-                    LegendItem(color: Colors.red, text: "Not Available :"),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: const [
-                    LegendItem(color: Colors.yellow, text: "Pending :"),
-                    LegendItem(color: Colors.blue, text: "Borrowed :"),
-                  ],
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black12),
+                  ),
+                  child: Column(
+                    children: const [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          LegendItem(color: Colors.green, text: "Available"),
+                          LegendItem(color: Colors.red, text: "Not Available"),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          LegendItem(color: Colors.yellow, text: "Pending"),
+                          LegendItem(color: Colors.blue, text: "Borrowed"),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
-          // === Item list today ===
+          // ===== item list today card =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 5,
-                  offset: Offset(2, 2),
-                ),
-              ],
-            ),
+            decoration: _cardDecoration(),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Item list Today",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
+                const Text("Item Stock Today",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [const Text("All items :"), _numberBox("7")],
-                ),
+                _infoRow("Total Sports :", totalSports.toString()),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [const Text("All Items count :"), _numberBox("43")],
-                ),
+                _infoRow("Total Items Stock :", totalItems.toString()),
               ],
             ),
           ),
@@ -373,24 +363,63 @@ class _DashboardContent extends StatelessWidget {
     );
   }
 
-  // --- Helpers ---
-  Widget _numberBox(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black38),
-        borderRadius: BorderRadius.circular(6),
+  static BoxDecoration _cardDecoration() => BoxDecoration(
         color: Colors.white,
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-      ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 5, offset: Offset(2, 2))
+        ],
+      );
+
+  Widget _infoRow(String title, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.black38),
+          ),
+          child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      ],
+    );
+  }
+
+  PieChartSectionData _buildSection(Color color, int value, String label) {
+    return PieChartSectionData(
+      color: color,
+      value: value.toDouble(),
+      radius: 50,
+      showTitle: false,
+      badgeWidget: value > 0
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(1, 2))
+                ],
+              ),
+              child: Text(
+                value.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            )
+          : null,
+      badgePositionPercentageOffset: 1.3,
     );
   }
 }
 
-// --- Helpers ---
 class LegendItem extends StatelessWidget {
   final Color color;
   final String text;
@@ -401,9 +430,9 @@ class LegendItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(width: 15, height: 15, color: color),
+        Container(width: 16, height: 16, color: color),
         const SizedBox(width: 6),
-        Text(text, style: const TextStyle(fontSize: 14)),
+        Text(text),
       ],
     );
   }

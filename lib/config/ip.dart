@@ -20,7 +20,7 @@ String get kSportApiBaseUrl => "$kBaseHost/api/sport";
 String get kAuthApiBaseUrl => "$kBaseHost/api/auth";
 
 /// api dashboard
-String get kDashApiBaseUrl => "$kBaseHost/api/dashboard";
+String get kDashApiBaseUrl => kSportApiBaseUrl;
 
 /// Base URL public สำหรับรูปภาพ
 String get kImageBaseUrl => "$kBaseHost/";
