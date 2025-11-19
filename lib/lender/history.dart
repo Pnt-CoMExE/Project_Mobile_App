@@ -27,8 +27,9 @@ class _HistoryState extends State<History> {
     super.initState();
     _loadAndFetch();
 
+    // ⭐ Auto-refresh ทุก 3 วินาที
     autoRefreshTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      _fetchHistory(silent: true);
+      _fetchHistory(silent: true); // silent = ไม่โชว์ loading
     });
   }
 
@@ -51,12 +52,15 @@ class _HistoryState extends State<History> {
     if (!silent) setState(() => _isLoading = true);
 
     try {
-      final res = await http.get(Uri.parse("$baseUrl/lender/history/$lenderId"));
+      final res =
+          await http.get(Uri.parse("$baseUrl/lender/history/$lenderId"));
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data["success"] == true) {
-          setState(() => _historyList = data["data"]);
+          setState(() {
+            _historyList = data["data"];
+          });
         }
       }
     } catch (e) {
@@ -119,9 +123,7 @@ class _HistoryState extends State<History> {
                                 fit: BoxFit.cover,
                               ),
                             ),
-
                             const SizedBox(width: 12),
-
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,40 +139,16 @@ class _HistoryState extends State<History> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 16),
                         _buildInfoRow("Sport :", item['category_name']),
                         const SizedBox(height: 6),
                         _buildInfoRow("Student :", item['username']),
                         const SizedBox(height: 6),
-                        _buildInfoRow(
-                            "Date Borrowed :", _formatDate(item['borrow_date'])),
+                        _buildInfoRow("Date Borrowed :",
+                            _formatDate(item['borrow_date'])),
                         const SizedBox(height: 6),
-                        _buildInfoRow(
-                            "Date Returned :", _formatDate(item['return_date'])),
-
-                        // ⭐⭐⭐ แสดง Reason เฉพาะ Rejected ⭐⭐⭐
-                        if (item['request_status'] == "Rejected") ...[
-                          const SizedBox(height: 12),
-                          const Text("Reason :",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87)),
-                          const SizedBox(height: 6),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey.shade400),
-                            ),
-                            child: Text(
-                              item['reason']?.toString() ?? '-',
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          ),
-                        ],
+                        _buildInfoRow("Date Returned :",
+                            _formatDate(item['return_date'])),
                       ],
                     ),
                   );
@@ -184,12 +162,13 @@ class _HistoryState extends State<History> {
     return Row(
       children: [
         Text(title,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: Colors.black87)),
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
         const SizedBox(width: 6),
         Expanded(
-            child: Text(value ?? '-',
-                style: const TextStyle(color: Colors.black87))),
+          child:
+              Text(value ?? '-', style: const TextStyle(color: Colors.black87)),
+        ),
       ],
     );
   }
@@ -197,29 +176,23 @@ class _HistoryState extends State<History> {
   Widget _buildStatusChip(String? status) {
     Color color;
     String label;
-
     switch (status) {
       case "Approved":
         color = Colors.green.shade600;
         label = "Approved";
         break;
-
       case "Rejected":
         color = Colors.red.shade600;
         label = "Rejected";
         break;
-
       default:
         color = Colors.orange.shade700;
         label = "Pending";
     }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(20)),
       child: Text(label,
           style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.bold)),
