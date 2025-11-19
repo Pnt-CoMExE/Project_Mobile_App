@@ -1,158 +1,286 @@
+// return.dart
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
-// [แก้ไข] ลบ Scaffold, AppBar, BottomNav ออก
-// หน้านี้จะถูกแสดงใน IndexedStack ของ sdashboard.dart
-class ReturnPage extends StatefulWidget {
-  const ReturnPage({super.key});
+// TODO: แก้ให้ตรงกับเซิร์ฟเวอร์จริงของคุณ
+final String _returnApiBaseUrl = kSportApiBaseUrl;
+final String _imageBaseUrl = kImageBaseUrl;
 
-  @override
-  State<ReturnPage> createState() => _ReturnPageState();
+class EquipmentItem {
+  final int requestId;
+  final String itemId;
+  final String itemName;
+  final String categoryName;
+  final String itemImage;
+  final String username;
+  final DateTime borrowDate;
+  final DateTime returnDate;
+
+  EquipmentItem({
+    required this.requestId,
+    required this.itemId,
+    required this.itemName,
+    required this.categoryName,
+    required this.itemImage,
+    required this.username,
+    required this.borrowDate,
+    required this.returnDate,
+  });
+
+  factory EquipmentItem.fromJson(Map<String, dynamic> json) {
+    DateTime _parseDate(dynamic v) {
+      if (v == null) return DateTime.now();
+      return DateTime.parse(v.toString());
+    }
+
+    return EquipmentItem(
+      requestId: json['request_id'] as int,
+      itemId: json['item_id'] as String,
+      itemName: json['item_name'] as String,
+      categoryName: json['category_name'] as String,
+      itemImage: json['item_image'] as String,
+      username: json['username'] as String,
+      borrowDate: _parseDate(json['borrow_date']),
+      returnDate: _parseDate(json['return_date']),
+    );
+  }
 }
 
-class _ReturnPageState extends State<ReturnPage> {
-  // [ลบ] _selectedIndex (ย้ายไป sdashboard.dart)
-
-  // ---- Mock borrowed list (ยังคงเก็บไว้) ----
-  final List<_BorrowItem> _borrowed = [
-    _BorrowItem(
-      title: 'Badminton Racket',
-      id: '050102',
-      username: 'James',
-      borrowed: DateTime(2025, 10, 21),
-      returnDate: DateTime(2025, 10, 21),
-      image: 'assets/images/badminton.png',
-    ),
-    _BorrowItem(
-      title: 'Volleyball',
-      id: '060101',
-      username: 'LnWZA007',
-      borrowed: DateTime(2025, 10, 20),
-      returnDate: DateTime(2025, 10, 21),
-      image: 'assets/images/volleyball.png',
-    ),
-    _BorrowItem(
-      title: 'Tennis Racket',
-      id: '030103',
-      username: 'Mike',
-      borrowed: DateTime(2025, 10, 20),
-      returnDate: DateTime(2025, 10, 21),
-      image: 'assets/images/tennis.png',
-    ),
-  ];
-
-  // [ลบ] _onItemTapped (ย้ายไป sdashboard.dart)
-  // [ลบ] _showLogoutDialog (ย้ายไป sdashboard.dart)
-
-  // ---- Helpers (ยังคงเก็บไว้) ----
-  String _fmt(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+class ReturnEquipmentScreen extends StatefulWidget {
+  const ReturnEquipmentScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final isEmpty = _borrowed.isEmpty;
+  State<ReturnEquipmentScreen> createState() => _ReturnEquipmentScreenState();
+}
 
-    // [ลบ] Scaffold
-    // [ลบ] AppBar
-    // [ลบ] BottomNavigationBar
+class _ReturnEquipmentScreenState extends State<ReturnEquipmentScreen> {
+  static const Color actionGreen = Color(0xFF4CAF50);
 
-    // [แก้ไข] คืนค่า Body (เนื้อหา) ออกไปตรงๆ
-    return isEmpty
-        ? _EmptyState()
-        : ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            itemBuilder: (_, i) {
-              final item = _borrowed[i];
-              return _ReturnCard(
-                item: item,
-                onReturn: () {
-                  // Logic ของหน้านี้ยังทำงานได้เหมือนเดิม
-                  setState(() {
-                    _borrowed.removeAt(i); // remove this card
-                  });
-                },
-              );
-            },
-            separatorBuilder: (_, __) => const SizedBox(height: 18),
-            itemCount: _borrowed.length,
-          );
+  bool _isLoading = true;
+  bool _isSubmitting = false;
+  List<EquipmentItem> _equipmentList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchEquipmentList();
   }
 
-  // ======= Card widget (ยังคงเก็บไว้) =======
-  Widget _ReturnCard({
-    required _BorrowItem item,
-    required VoidCallback onReturn,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(2, 4)),
-        ],
+  // ============================
+  // Fetch list from API
+  // ============================
+  Future<void> _fetchEquipmentList() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final url = Uri.parse('$_returnApiBaseUrl/return/list');
+      final res = await http.get(url);
+
+      if (res.statusCode == 200) {
+        final body = json.decode(res.body);
+        if (body['success'] == true) {
+          final List data = body['data'] as List;
+          setState(() {
+            _equipmentList = data
+                .map((e) => EquipmentItem.fromJson(e))
+                .toList();
+          });
+        } else {
+          _showSnack(body['message']?.toString() ?? 'Failed to load data');
+        }
+      } else {
+        _showSnack('Server error: ${res.statusCode}');
+      }
+    } catch (e) {
+      _showSnack('Error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  // ============================
+  // Handle RETURN button
+  // ============================
+  Future<void> _handleReturn(EquipmentItem item) async {
+    if (_isSubmitting) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // ดึง staff_id จาก SharedPreferences (ตอน login staff ให้เซฟ userId ไว้)
+      final prefs = await SharedPreferences.getInstance();
+
+      // ลองดึงจาก 'userId' ก่อน ถ้าไม่มีให้ fallback เป็น 'u_id'
+      final staffId = prefs.getInt('userId') ?? prefs.getInt('u_id');
+
+      debugPrint("👤 staffId from SharedPreferences = $staffId");
+
+      if (staffId == null) {
+        _showSnack('Cannot find staff ID. Please login again.');
+        return;
+      }
+      final url = Uri.parse('$_returnApiBaseUrl/return/confirm');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'request_id': item.requestId, 'staff_id': staffId}),
+      );
+
+      if (res.statusCode == 200) {
+        final body = json.decode(res.body);
+        if (body['success'] == true) {
+          _showSnack('Returned: ${item.itemName}');
+          // โหลดรายการใหม่ หลังจากคืนของแล้ว
+          await _fetchEquipmentList();
+        } else {
+          _showSnack(body['message']?.toString() ?? 'Return failed');
+        }
+      } else {
+        _showSnack('Server error: ${res.statusCode}');
+      }
+    } catch (e) {
+      _showSnack('Error: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  // ============================
+  // UI Helpers
+  // ============================
+  String _formatDate(DateTime d) {
+    final dd = d.day.toString().padLeft(2, '0');
+    final mm = d.month.toString().padLeft(2, '0');
+    final yyyy = d.year.toString();
+    return '$dd/$mm/$yyyy';
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(
+              text: '$label : ',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: value),
+          ],
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+    );
+  }
+
+  Widget _buildEquipmentCard(EquipmentItem item) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Container(
+        padding: const EdgeInsets.all(15.0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.3),
+              spreadRadius: 2,
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // header + image
+            // หัว + รูป
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ด้านซ้าย: details
                 Expanded(
-                  child: RichText(
-                    text: TextSpan(
-                      style: const TextStyle(color: Colors.black, height: 1.4),
-                      children: [
-                        const TextSpan(
-                          text: 'Equipment: ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Item: ${item.itemName}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
-                        TextSpan(
-                          text: '${item.title} - ${item.id}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildDetailRow('Item ID', item.itemId),
+                      _buildDetailRow('Sport', item.categoryName),
+                      _buildDetailRow('Username', item.username),
+                      _buildDetailRow('Borrowed', _formatDate(item.borrowDate)),
+                      _buildDetailRow(
+                        'Return Date',
+                        _formatDate(item.returnDate),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 10),
-                _ImageThumb(
-                  path: item.image,
-                  fallbackIcon: Icons.sports_volleyball,
+                // ด้านขวา: รูป
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8.0),
+                  child: Image.network(
+                    '$_imageBaseUrl${item.itemImage}',
+                    width: 70,
+                    height: 70,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        width: 70,
+                        height: 70,
+                        color: Colors.grey[300],
+                        child: const Center(
+                          child: Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 30,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text('Username:  ${item.username}'),
-            Text('Borrowed:  ${_fmt(item.borrowed)}'),
-            Text('Return Date: ${_fmt(item.returnDate)}'),
-            const SizedBox(height: 14),
-            // RETURN button
+            const SizedBox(height: 20),
+            // ปุ่ม RETURN
             SizedBox(
               width: double.infinity,
-              height: 46,
               child: ElevatedButton(
-                onPressed: onReturn,
+                onPressed: _isSubmitting ? null : () => _handleReturn(item),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF43A047), // green
+                  backgroundColor: actionGreen,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  elevation: 1,
                 ),
                 child: const Text(
                   'RETURN',
                   style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
                   ),
                 ),
               ),
@@ -162,78 +290,32 @@ class _ReturnPageState extends State<ReturnPage> {
       ),
     );
   }
-}
 
-// ======= Empty state (ยังคงเก็บไว้) =======
-class _EmptyState extends StatelessWidget {
+  // ============================
+  // Build
+  // ============================
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.only(top: 80),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'All Items have return',
-              style: TextStyle(color: Colors.black54),
+    return Scaffold(
+      // ถ้าใช้ใน sdashboard/ldashboard แล้ว จะมี AppBar จากข้างนอกให้แล้ว
+      backgroundColor: Colors.grey[100],
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _equipmentList.isEmpty
+          ? const Center(
+              child: Text(
+                'No items to return',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                children: _equipmentList
+                    .map((item) => _buildEquipmentCard(item))
+                    .toList(),
+              ),
             ),
-            SizedBox(height: 8),
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Color(0xFFEDE7F6),
-              child: Icon(Icons.access_time, color: Colors.black45),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ======= small helpers / models (ยังคงเก็บไว้) =======
-class _BorrowItem {
-  final String title;
-  final String id;
-  final String username;
-  final DateTime borrowed;
-  final DateTime returnDate;
-  final String image;
-
-  _BorrowItem({
-    required this.title,
-    required this.id,
-    required this.username,
-    required this.borrowed,
-    required this.returnDate,
-    required this.image,
-  });
-}
-
-class _ImageThumb extends StatelessWidget {
-  final String path;
-  final IconData fallbackIcon;
-  const _ImageThumb({required this.path, required this.fallbackIcon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 72,
-      height: 56,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(1, 2)),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Image.asset(
-        path,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
-            Icon(fallbackIcon, size: 36, color: Colors.grey[600]),
-      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      final url = Uri.parse('http://10.10.0.25:3000/api/auth/login');
+      final url = Uri.parse('$kAuthApiBaseUrl/login');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -41,7 +42,9 @@ class _LoginPageState extends State<LoginPage> {
         }),
       );
 
-      debugPrint("📥 Login Response (${response.statusCode}): ${response.body}");
+      debugPrint(
+        "📥 Login Response (${response.statusCode}): ${response.body}",
+      );
 
       if (!mounted) return;
 
@@ -57,26 +60,39 @@ class _LoginPageState extends State<LoginPage> {
       }
 
       if (response.statusCode == 200 && data!['success'] == true) {
-  final prefs = await SharedPreferences.getInstance();
+        final prefs = await SharedPreferences.getInstance();
 
-  int userId = data!['user']['u_id'];
-  int userRole = data!['user']['u_role'];
-  String username = data!['user']['u_username'];
-  String token = data!['user']['token'] ?? '';
+        int userId = data['user']['u_id'];
+        int userRole = data['user']['u_role'];
+        String username = data['user']['u_username'];
+        String token = data['token'] ?? '';
 
-
-        // ✅ บันทึกลง SharedPreferences (ใช้ key เดียวกับทุกหน้า)
+        // ✅ เซฟลง prefs (ทั้งชื่อ key แบบเก่า + แบบใหม่)
         await prefs.setInt('u_id', userId);
         await prefs.setInt('u_role', userRole);
         await prefs.setString('u_username', username);
         await prefs.setString('token', token);
 
-        debugPrint(
-            "✅ Saved user info: u_id=$userId, u_role=$userRole, u_username=$username");
+        await prefs.setInt('userId', userId); // ใช้ใน return.dart
+        await prefs.setInt('role', userRole);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Login successful!')),
-        );
+        // 🔍 ลองอ่านกลับมาดูเลยว่ามันถูกเก็บจริงไหม
+        final debugUid = prefs.getInt('u_id');
+        final debugUserId = prefs.getInt('userId');
+        final debugRole = prefs.getInt('u_role');
+        final debugRole2 = prefs.getInt('role');
+        final debugUsername = prefs.getString('u_username');
+
+        debugPrint("✅ Saved user info to prefs:");
+        debugPrint("   u_id     = $debugUid");
+        debugPrint("   userId   = $debugUserId");
+        debugPrint("   u_role   = $debugRole");
+        debugPrint("   role     = $debugRole2");
+        debugPrint("   username = $debugUsername");
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('✅ Login successful!')));
 
         if (!mounted) return;
 
@@ -95,15 +111,15 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ ${data!['message']}')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('❌ ${data!['message']}')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('⚠️ Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('⚠️ Error: $e')));
       }
     } finally {
       if (mounted) {
@@ -239,8 +255,8 @@ class _LoginPageState extends State<LoginPage> {
                                       ? const CircularProgressIndicator(
                                           valueColor:
                                               AlwaysStoppedAnimation<Color>(
-                                            Colors.white,
-                                          ),
+                                                Colors.white,
+                                              ),
                                         )
                                       : const Text(
                                           "Login",

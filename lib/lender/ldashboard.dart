@@ -1,3 +1,4 @@
+//ldashboard.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +6,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'approve.dart';
 import 'history.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 class Ldashboard extends StatefulWidget {
   const Ldashboard({super.key});
@@ -123,6 +125,7 @@ class _DashboardContent extends StatefulWidget {
 
 class _DashboardContentState extends State<_DashboardContent> {
   bool loading = true;
+
   int available = 0, notAvailable = 0, pending = 0, borrowed = 0;
   int totalSports = 0, totalItems = 0;
 
@@ -130,16 +133,35 @@ class _DashboardContentState extends State<_DashboardContent> {
   void initState() {
     super.initState();
     fetchDashboard();
+
+    // 🔥 Auto refresh dashboard ทุก 3 วินาที
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) return false;
+      await fetchDashboard();
+      return true;
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (ModalRoute.of(context)?.isCurrent == true) {
+      fetchDashboard();
+    }
   }
 
   Future<void> fetchDashboard() async {
     try {
-      final url = Uri.parse("http://10.10.0.25:3000/api/dashboard");
+      final url = Uri.parse(kDashApiBaseUrl);
       final res = await http.get(url);
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         final status = data['status_summary'];
+
+        if (!mounted) return;
 
         setState(() {
           available = int.tryParse(status['available'].toString()) ?? 0;
@@ -151,8 +173,6 @@ class _DashboardContentState extends State<_DashboardContent> {
           totalItems = data['total_items'] ?? 0;
           loading = false;
         });
-      } else {
-        throw Exception("Failed to load dashboard");
       }
     } catch (e) {
       print("❌ Error fetching dashboard: $e");
@@ -192,8 +212,6 @@ class _DashboardContentState extends State<_DashboardContent> {
                         _buildSection(Colors.blue, borrowed, "Borrowed"),
                       ],
                     ),
-                    swapAnimationDuration: const Duration(milliseconds: 1200), // 🔄 Animation
-                    swapAnimationCurve: Curves.easeOutCubic,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -276,7 +294,6 @@ class _DashboardContentState extends State<_DashboardContent> {
     );
   }
 
-  // ✅ ฟังก์ชันสร้าง section ของกราฟ (สีตามสถานะ + animation)
   PieChartSectionData _buildSection(Color color, int value, String label) {
     return PieChartSectionData(
       color: color,
@@ -287,7 +304,7 @@ class _DashboardContentState extends State<_DashboardContent> {
           ? Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: color, // กล่องสีตามสถานะ
+                color: color,
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: const [
                   BoxShadow(color: Colors.black26, blurRadius: 3, offset: Offset(1, 2))
@@ -296,7 +313,7 @@ class _DashboardContentState extends State<_DashboardContent> {
               child: Text(
                 value.toString(),
                 style: const TextStyle(
-                  color: Colors.white, // ตัวอักษรขาว
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),

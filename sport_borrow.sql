@@ -1,15 +1,11 @@
--- XAMPP-Lite
--- version 8.4.6
--- https://xampplite.sf.net/
---
 -- phpMyAdmin SQL Dump
--- version 5.2.2
+-- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Nov 09, 2025 at 02:49 PM
--- Server version: 11.4.5-MariaDB-log
--- PHP Version: 8.4.6
+-- Generation Time: Nov 15, 2025 at 11:47 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -72,17 +68,27 @@ CREATE TABLE `borrow_request` (
 --
 
 INSERT INTO `borrow_request` (`request_id`, `student_id`, `item_id`, `borrow_date`, `return_date`, `actual_return_date`, `request_status`, `return_status`, `lender_id`, `request_description`, `staff_id`) VALUES
-(4, 1, 'BAD-001-0002', '2025-11-05', '2025-11-07', NULL, 'Rejected', '-', NULL, 'ควย', NULL),
-(5, 1, 'BAD-001-0001', '2025-11-09', '2025-11-09', NULL, 'Rejected', '-', NULL, 'ควย', NULL),
+(4, 1, 'BAD-001-0002', '2025-11-05', '2025-11-07', NULL, 'Rejected', '-', NULL, '-', NULL),
+(5, 1, 'BAD-001-0001', '2025-11-09', '2025-11-09', NULL, 'Rejected', '-', NULL, '-', NULL),
 (6, 1, 'BAD-001-0001', '2025-11-09', '2025-11-09', NULL, 'Approved', 'On time', NULL, NULL, NULL),
 (7, 1, 'BAD-001-0002', '2025-11-09', '2025-11-10', '2025-11-10', 'Approved', 'On time', NULL, NULL, NULL),
 (8, 1, 'BAL-002-0001', '2025-11-09', '2025-11-10', '2025-11-10', 'Approved', 'On time', NULL, NULL, NULL),
 (10, 1, 'VOL-001-0001', '2025-11-09', '2025-11-10', '2025-11-12', 'Approved', 'Overdue', NULL, NULL, NULL),
-(11, 1, 'BAD-001-0002', '2025-11-09', '2025-11-09', NULL, 'Rejected', '-', NULL, 'ควย', NULL),
+(11, 1, 'BAD-001-0002', '2025-11-09', '2025-11-09', NULL, 'Rejected', '-', NULL, '-', NULL),
 (12, 3, 'BAD-001-0002', '2025-11-09', '2025-11-09', '2025-11-09', 'Approved', 'On time', NULL, NULL, NULL),
 (13, 3, 'BAD-001-0001', '2025-11-09', '2025-11-09', '2025-11-09', 'Approved', 'Overdue', NULL, NULL, NULL),
 (14, 3, 'TEN-003-0001', '2025-11-09', '2025-11-09', '2025-11-10', 'Approved', 'Overdue', NULL, NULL, NULL),
-(15, 3, 'VOL-001-0001', '2025-11-09', '2025-11-10', NULL, 'Rejected', '-', NULL, 'ควย', NULL);
+(15, 3, 'VOL-001-0001', '2025-11-09', '2025-11-10', NULL, 'Rejected', '-', NULL, '-', NULL),
+(16, 1, 'VOL-001-0001', '2025-11-13', '2025-11-14', '2025-11-14', 'Approved', 'On time', 3, '', NULL),
+(17, 1, 'BAD-001-0002', '2025-11-13', '2025-11-14', NULL, 'Rejected', '-', NULL, NULL, NULL),
+(18, 1, 'BAD-001-0002', '2025-11-13', '2025-11-14', NULL, 'Rejected', '-', 3, 'gg', NULL),
+(19, 2, 'TEN-003-0001', '2025-11-13', '2025-11-13', NULL, 'Rejected', '-', 3, 'ToT', NULL),
+(20, 2, 'BAD-001-0002', '2025-11-13', '2025-11-13', NULL, 'Rejected', '-', 3, 'ggez', NULL),
+(21, 1, 'BAD-001-0002', '2025-11-13', '2025-11-13', NULL, 'Rejected', '-', 3, '-', NULL),
+(22, 2, 'BAL-002-0001', '2025-11-13', '2025-11-14', NULL, 'Approved', '-', 3, '', NULL),
+(23, 1, 'BAD-001-0001', '2025-11-13', '2025-11-13', NULL, 'Rejected', '-', 3, '-', NULL),
+(24, 1, 'TEN-003-0001', '2025-11-15', '2025-11-16', NULL, 'Rejected', '-', 3, '1', NULL),
+(25, 1, 'BAD-001-0002', '2025-11-15', '2025-11-17', NULL, 'Approved', '-', 3, '', NULL);
 
 --
 -- Triggers `borrow_request`
@@ -235,8 +241,8 @@ CREATE TABLE `sport_item` (
 
 INSERT INTO `sport_item` (`item_id`, `category_id`, `item_name`, `item_image`, `status`) VALUES
 ('BAD-001-0001', 1, 'Racket', 'images/badminton.png', 'Available'),
-('BAD-001-0002', 1, 'Shuttle', 'images/shuttle.png', 'Available'),
-('BAL-002-0001', 2, 'Basketball', 'images/basketball.png', 'Available'),
+('BAD-001-0002', 1, 'Shuttle', 'images/shuttle.png', 'Borrowed'),
+('BAL-002-0001', 2, 'Basketball', 'images/basketball.png', 'Borrowed'),
 ('PET-001-0001', 3, 'Petanque ball', 'images/petanque.png', 'Disable'),
 ('TEN-003-0001', 4, 'Tennis Racket', 'images/tennis.png', 'Available'),
 ('VOL-001-0001', 5, 'Volleyball\'s Ball', 'images/volleyball.png', 'Available');
@@ -261,7 +267,50 @@ CREATE TABLE `user` (
 INSERT INTO `user` (`u_id`, `u_username`, `u_password`, `u_role`) VALUES
 (1, 'student1', '$2b$10$fe0VNm/r7uQn1DOyP9UNpuERY72agdOZk7VPkHcyy1NNktRosFcYe', 1),
 (2, 'student2', '$2b$10$MrQd/jpH9VMYY/.9sWrh/O.OGNL/zNuuP.HgOGw95bAyIzxl/cVHO', 1),
-(3, 'ptk', '$2b$10$FaItAFcmMHoQucW/x9XuHO8yuzbpOfpUH9zaSCyoQiINernS6T/o.', 1);
+(3, 'ptk', '$2b$10$FaItAFcmMHoQucW/x9XuHO8yuzbpOfpUH9zaSCyoQiINernS6T/o.', 3),
+(4, 'lender1', '$2b$10$IWL2WhVTWGw0ojbhzNy1PO8iG7DUBjCYrBL0P1/8Uw4rsGZi7E5AW', 3),
+(5, 'lender2', '$2b$10$X.K7gO9T3S3mFqaR3yZeau1eO9AtD6n3mZyvx4q7RuoSFQmSAymAy', 3);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_sessions`
+--
+
+CREATE TABLE `user_sessions` (
+  `id` int(11) NOT NULL,
+  `user_id` smallint(10) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `last_activity` datetime NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `category_status_view`
+--
+DROP TABLE IF EXISTS `category_status_view`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `category_status_view`  AS SELECT `sc`.`category_id` AS `category_id`, `sc`.`category_name` AS `category_name`, `sc`.`category_image` AS `category_image`, count(`si`.`item_id`) AS `total_items`, sum(case when `si`.`status` = 'Available' then 1 else 0 end) AS `available_count`, sum(case when `si`.`status` = 'Borrowed' then 1 else 0 end) AS `borrowed_count`, sum(case when `si`.`status` = 'Pending' then 1 else 0 end) AS `pending_count`, sum(case when `si`.`status` = 'Disable' then 1 else 0 end) AS `disable_count`, CASE WHEN sum(case when `si`.`status` = 'Available' then 1 else 0 end) > 0 THEN 'Available' WHEN sum(case when `si`.`status` = 'Borrowed' then 1 else 0 end) > 0 AND sum(case when `si`.`status` in ('Available','Pending') then 1 else 0 end) = 0 THEN 'Borrowed' WHEN sum(case when `si`.`status` = 'Pending' then 1 else 0 end) > 0 AND sum(case when `si`.`status` in ('Available','Borrowed') then 1 else 0 end) = 0 THEN 'Available' WHEN sum(case when `si`.`status` = 'Disable' then 1 else 0 end) = count(`si`.`item_id`) THEN 'Disable' ELSE 'Available' END AS `category_status` FROM (`sport_category` `sc` left join `sport_item` `si` on(`sc`.`category_id` = `si`.`category_id`)) GROUP BY `sc`.`category_id`, `sc`.`category_name`, `sc`.`category_image` ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `history_view`
+--
+DROP TABLE IF EXISTS `history_view`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `history_view`  AS SELECT `br`.`request_id` AS `request_id`, `br`.`student_id` AS `student_id`, `si`.`item_image` AS `item_image`, `si`.`item_name` AS `item_name`, `sc`.`category_name` AS `category_name`, `br`.`request_status` AS `request_status`, `br`.`borrow_date` AS `borrow_date`, `br`.`return_date` AS `return_date`, `br`.`actual_return_date` AS `actual_return_date`, `br`.`return_status` AS `return_status`, `br`.`request_description` AS `request_description`, `br`.`staff_id` AS `staff_id` FROM ((`borrow_request` `br` join `sport_item` `si` on(`br`.`item_id` = `si`.`item_id`)) join `sport_category` `sc` on(`si`.`category_id` = `sc`.`category_id`)) WHERE `br`.`request_status` in ('Approved','Rejected') ORDER BY `br`.`request_id` DESC ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `request_result_view`
+--
+DROP TABLE IF EXISTS `request_result_view`;
+
+CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `request_result_view`  AS SELECT `br`.`request_id` AS `request_id`, `br`.`student_id` AS `student_id`, `si`.`item_image` AS `item_image`, `si`.`item_name` AS `item_name`, `sc`.`category_name` AS `category_name`, `br`.`borrow_date` AS `borrow_date`, `br`.`return_date` AS `return_date`, `br`.`request_status` AS `request_status` FROM ((`borrow_request` `br` join `sport_item` `si` on(`br`.`item_id` = `si`.`item_id`)) join `sport_category` `sc` on(`si`.`category_id` = `sc`.`category_id`)) WHERE `br`.`request_status` = 'Pending' ORDER BY `br`.`request_id` DESC ;
 
 --
 -- Indexes for dumped tables
@@ -299,6 +348,14 @@ ALTER TABLE `user`
   ADD UNIQUE KEY `u_username` (`u_username`);
 
 --
+-- Indexes for table `user_sessions`
+--
+ALTER TABLE `user_sessions`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `token` (`token`);
+
+--
 -- AUTO_INCREMENT for dumped tables
 --
 
@@ -306,7 +363,7 @@ ALTER TABLE `user`
 -- AUTO_INCREMENT for table `borrow_request`
 --
 ALTER TABLE `borrow_request`
-  MODIFY `request_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `request_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- AUTO_INCREMENT for table `sport_category`
@@ -318,34 +375,13 @@ ALTER TABLE `sport_category`
 -- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
-  MODIFY `u_id` smallint(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
--- --------------------------------------------------------
+  MODIFY `u_id` smallint(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- Structure for view `category_status_view`
+-- AUTO_INCREMENT for table `user_sessions`
 --
-DROP TABLE IF EXISTS `category_status_view`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `category_status_view`  AS SELECT `sc`.`category_id` AS `category_id`, `sc`.`category_name` AS `category_name`, `sc`.`category_image` AS `category_image`, count(`si`.`item_id`) AS `total_items`, sum(case when `si`.`status` = 'Available' then 1 else 0 end) AS `available_count`, sum(case when `si`.`status` = 'Borrowed' then 1 else 0 end) AS `borrowed_count`, sum(case when `si`.`status` = 'Pending' then 1 else 0 end) AS `pending_count`, sum(case when `si`.`status` = 'Disable' then 1 else 0 end) AS `disable_count`, CASE WHEN sum(case when `si`.`status` = 'Available' then 1 else 0 end) > 0 THEN 'Available' WHEN sum(case when `si`.`status` = 'Borrowed' then 1 else 0 end) > 0 AND sum(case when `si`.`status` in ('Available','Pending') then 1 else 0 end) = 0 THEN 'Borrowed' WHEN sum(case when `si`.`status` = 'Pending' then 1 else 0 end) > 0 AND sum(case when `si`.`status` in ('Available','Borrowed') then 1 else 0 end) = 0 THEN 'Available' WHEN sum(case when `si`.`status` = 'Disable' then 1 else 0 end) = count(`si`.`item_id`) THEN 'Disable' ELSE 'Available' END AS `category_status` FROM (`sport_category` `sc` left join `sport_item` `si` on(`sc`.`category_id` = `si`.`category_id`)) GROUP BY `sc`.`category_id`, `sc`.`category_name`, `sc`.`category_image` ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `history_view`
---
-DROP TABLE IF EXISTS `history_view`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `history_view`  AS SELECT `br`.`request_id` AS `request_id`, `br`.`student_id` AS `student_id`, `si`.`item_image` AS `item_image`, `si`.`item_name` AS `item_name`, `sc`.`category_name` AS `category_name`, `br`.`request_status` AS `request_status`, `br`.`borrow_date` AS `borrow_date`, `br`.`return_date` AS `return_date`, `br`.`actual_return_date` AS `actual_return_date`, `br`.`return_status` AS `return_status`, `br`.`request_description` AS `request_description`, `br`.`staff_id` AS `staff_id` FROM ((`borrow_request` `br` join `sport_item` `si` on(`br`.`item_id` = `si`.`item_id`)) join `sport_category` `sc` on(`si`.`category_id` = `sc`.`category_id`)) WHERE `br`.`request_status` in ('Approved','Rejected') ORDER BY `br`.`request_id` DESC ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `request_result_view`
---
-DROP TABLE IF EXISTS `request_result_view`;
-
-CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `request_result_view`  AS SELECT `br`.`request_id` AS `request_id`, `br`.`student_id` AS `student_id`, `si`.`item_image` AS `item_image`, `si`.`item_name` AS `item_name`, `sc`.`category_name` AS `category_name`, `br`.`borrow_date` AS `borrow_date`, `br`.`return_date` AS `return_date`, `br`.`request_status` AS `request_status` FROM ((`borrow_request` `br` join `sport_item` `si` on(`br`.`item_id` = `si`.`item_id`)) join `sport_category` `sc` on(`si`.`category_id` = `sc`.`category_id`)) WHERE `br`.`request_status` = 'Pending' ORDER BY `br`.`request_id` DESC ;
+ALTER TABLE `user_sessions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables

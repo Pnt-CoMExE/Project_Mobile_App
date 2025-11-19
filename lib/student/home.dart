@@ -5,10 +5,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'history.dart';
 import 'request.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 // [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://10.10.0.25:3000/api/sport';
-const String _imageBaseUrl = 'http://10.10.0.25:3000/';
+String _apiBaseUrl = kSportApiBaseUrl;
+String _imageBaseUrl = kImageBaseUrl;
 
 // =======================================
 // Data Models (เหมือนเดิม)
@@ -336,54 +337,64 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showBorrowDialog(SportItem item) {
-    String selectedDay = 'Tomorrow';
-    showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text('Borrow: ${item.name}'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Choose return day:'),
-                const SizedBox(height: 8),
-                DropdownButton<String>(
-                  value: selectedDay,
-                  items: const [
-                    DropdownMenuItem(value: 'Today', child: Text('Today')),
-                    DropdownMenuItem(
-                      value: 'Tomorrow',
-                      child: Text('Tomorrow'),
-                    ),
-                  ],
-                  onChanged: (v) => setDialogState(() => selectedDay = v!),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                child: const Text('Cancel'),
-                onPressed: () => Navigator.pop(context),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _createBorrowRequest(item.itemId, selectedDay);
+ void _showBorrowDialog(SportItem item) {
+  String selectedDay = 'Tomorrow';
+
+  showDialog(
+    context: context,
+    builder: (_) => StatefulBuilder(
+      builder: (context, setDialogState) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text('Borrow: ${item.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Choose return day:'),
+              const SizedBox(height: 8),
+
+              // ⭐ เปลี่ยนจาก Dropdown เป็น Radio
+              RadioListTile<String>(
+                title: const Text('Today'),
+                value: 'Today',
+                groupValue: selectedDay,
+                onChanged: (v) {
+                  setDialogState(() => selectedDay = v!);
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('Confirm'),
+              ),
+              RadioListTile<String>(
+                title: const Text('Tomorrow'),
+                value: 'Tomorrow',
+                groupValue: selectedDay,
+                onChanged: (v) {
+                  setDialogState(() => selectedDay = v!);
+                },
               ),
             ],
-          );
-        },
-      ),
-    );
-  }
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _createBorrowRequest(item.itemId, selectedDay);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -471,7 +482,7 @@ class _HomePageState extends State<HomePage> {
                   Text(
                     showItemList
                         ? _selectedCategory?.name ?? 'Items'
-                        : "Hi !!, ${_username ?? 'Guest'}",
+                        : "Welcome !!, ${_username ?? 'Guest'}",
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

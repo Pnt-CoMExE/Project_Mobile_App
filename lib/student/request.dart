@@ -1,14 +1,15 @@
+//request.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'history.dart';
+import 'package:project_mobile_app/config/ip.dart';
 
 // [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-const String _apiBaseUrl = 'http://10.10.0.25:3000/api/sport';
-// [FIX] เพิ่ม Base URL สำหรับรูปภาพ (ไม่มี /api/sport)
-const String _imageBaseUrl = 'http://10.10.0.25:3000/';
+String _apiBaseUrl = kSportApiBaseUrl;
+String _imageBaseUrl = kImageBaseUrl;
 
 // =======================================
 // [NEW] Data Model (สำหรับ request_result_view)
@@ -68,34 +69,52 @@ class _RequestPageState extends State<RequestPage> {
   }
 
   Future<void> _fetchRequests() async {
-    final prefs = await SharedPreferences.getInstance();
-    final studentId = prefs.getInt('u_id');
+  setState(() => _isLoading = true);
 
-    if (studentId == null || studentId == 0) {
-      _showErrorSnackBar("User not logged in.");
-      setState(() => _isLoading = false);
-      return;
-    }
+  final prefs = await SharedPreferences.getInstance();
+  final studentId = prefs.getInt('u_id');
 
-    try {
-      final response = await http.get(
-        Uri.parse('$_apiBaseUrl/requests/$studentId'),
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data'] as List;
+  if (studentId == null || studentId == 0) {
+    _showErrorSnackBar("User not logged in.");
+    setState(() => _isLoading = false);
+    return;
+  }
+
+  try {
+    final url = '$_apiBaseUrl/requests/$studentId';
+    debugPrint("📡 GET $url");
+
+    final response = await http.get(Uri.parse(url));
+
+    debugPrint("📡 Status: ${response.statusCode}");
+    debugPrint("📡 Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded["success"] == true) {
+        final List list = decoded["data"] ?? [];
+
         setState(() {
-          _requestItems = data
+          _requestItems = list
               .map((item) => RequestItem.fromJson(item))
               .toList();
-          _isLoading = false;
         });
       } else {
-        _showErrorSnackBar('Failed to load requests');
+        _showErrorSnackBar("Failed: ${decoded["message"]}");
       }
-    } catch (e) {
-      _showErrorSnackBar('Error: ${e.toString()}');
+    } else {
+      _showErrorSnackBar("HTTP Error ${response.statusCode}");
+    }
+  } catch (e) {
+    _showErrorSnackBar("Error: $e");
+  } finally {
+    // ❗ สำคัญสุด: ปิด loading เสมอ
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
+}
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
