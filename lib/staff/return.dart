@@ -1,6 +1,7 @@
 // return.dart
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:project_mobile_app/staff/equipment.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:project_mobile_app/config/ip.dart';
@@ -120,10 +121,8 @@ class _ReturnEquipmentScreenState extends State<ReturnEquipmentScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // ดึง staff_id จาก SharedPreferences (ตอน login staff ให้เซฟ userId ไว้)
+      // ดึง staff_id จาก SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-
-      // ลองดึงจาก 'userId' ก่อน ถ้าไม่มีให้ fallback เป็น 'u_id'
       final staffId = prefs.getInt('userId') ?? prefs.getInt('u_id');
 
       debugPrint("👤 staffId from SharedPreferences = $staffId");
@@ -132,6 +131,7 @@ class _ReturnEquipmentScreenState extends State<ReturnEquipmentScreen> {
         _showSnack('Cannot find staff ID. Please login again.');
         return;
       }
+
       final url = Uri.parse('$_returnApiBaseUrl/return/confirm');
       final res = await http.post(
         url,
@@ -143,6 +143,10 @@ class _ReturnEquipmentScreenState extends State<ReturnEquipmentScreen> {
         final body = json.decode(res.body);
         if (body['success'] == true) {
           _showSnack('Returned: ${item.itemName}');
+
+          // 🔥 แก้ไข: ใช้ EquipmentPage.notifyUpdate()
+          EquipmentPage.notifyUpdate();
+
           // โหลดรายการใหม่ หลังจากคืนของแล้ว
           await _fetchEquipmentList();
         } else {

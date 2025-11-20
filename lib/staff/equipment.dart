@@ -1,4 +1,4 @@
-// equipment.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -69,6 +69,16 @@ class EquipmentPage extends StatefulWidget {
 
   @override
   State<EquipmentPage> createState() => _EquipmentPageState();
+
+  // ย้าย StreamController มาไว้ที่นี่เพื่อให้เข้าถึงจากภายนอกได้ง่าย
+  static final StreamController<void> updateStreamController =
+      StreamController<void>.broadcast();
+  static Stream<void> get updateStream => updateStreamController.stream;
+
+  // Method สำหรับแจ้งเตือนการอัพเดท
+  static void notifyUpdate() {
+    updateStreamController.add(null);
+  }
 }
 
 class _EquipmentPageState extends State<EquipmentPage> {
@@ -84,6 +94,13 @@ class _EquipmentPageState extends State<EquipmentPage> {
   void initState() {
     super.initState();
     _initData();
+
+    // ฟังการแจ้งเตือนการอัพเดทจากหน้าอื่น
+    EquipmentPage.updateStream.listen((_) {
+      if (mounted) {
+        _refreshData();
+      }
+    });
   }
 
   Future<void> _initData() async {
@@ -99,6 +116,14 @@ class _EquipmentPageState extends State<EquipmentPage> {
     });
   }
 
+  Future<void> _refreshData() async {
+    if (_selectedCategory != null) {
+      await _fetchItemsForCategory(_selectedCategory!);
+    }
+    await _fetchCategories();
+    _showSnackBar('Equipment data updated automatically ✅');
+  }
+
   // -----------------------------
   // API: โหลดรายการกีฬา (Staff)
   // -----------------------------
@@ -110,13 +135,16 @@ class _EquipmentPageState extends State<EquipmentPage> {
         final body = json.decode(res.body);
         final List data = body['data'] as List;
         setState(() {
-          _categories =
-              data.map((e) => StaffSportCategory.fromJson(e)).toList();
+          _categories = data
+              .map((e) => StaffSportCategory.fromJson(e))
+              .toList();
         });
       } else {
         final body = json.decode(res.body);
-        _showSnackBar('Failed to load sports: ${body['message']}',
-            isError: true);
+        _showSnackBar(
+          'Failed to load sports: ${body['message']}',
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackBar('Error: $e', isError: true);
@@ -135,8 +163,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
     });
 
     try {
-      final res =
-          await http.get(Uri.parse('$_apiBaseUrl/staff/items/${cat.categoryId}'));
+      final res = await http.get(
+        Uri.parse('$_apiBaseUrl/staff/items/${cat.categoryId}'),
+      );
 
       if (res.statusCode == 200) {
         final body = json.decode(res.body);
@@ -146,7 +175,10 @@ class _EquipmentPageState extends State<EquipmentPage> {
         });
       } else {
         final body = json.decode(res.body);
-        _showSnackBar('Failed to load items: ${body['message']}', isError: true);
+        _showSnackBar(
+          'Failed to load items: ${body['message']}',
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackBar('Error: $e', isError: true);
@@ -166,10 +198,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
       final res = await http.post(
         Uri.parse('$_apiBaseUrl/staff/category'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'category_name': name,
-          'category_image': imagePath,
-        }),
+        body: json.encode({'category_name': name, 'category_image': imagePath}),
       );
 
       if (res.statusCode == 200 || res.statusCode == 201) {
@@ -194,10 +223,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
       final res = await http.put(
         Uri.parse('$_apiBaseUrl/staff/category/$categoryId'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'category_name': name,
-          'category_image': imagePath,
-        }),
+        body: json.encode({'category_name': name, 'category_image': imagePath}),
       );
 
       if (res.statusCode != 200) {
@@ -223,8 +249,10 @@ class _EquipmentPageState extends State<EquipmentPage> {
 
       if (res.statusCode != 200) {
         final body = json.decode(res.body);
-        _showSnackBar('Change status failed: ${body['message']}',
-            isError: true);
+        _showSnackBar(
+          'Change status failed: ${body['message']}',
+          isError: true,
+        );
       }
     } catch (e) {
       _showSnackBar('Error: $e', isError: true);
@@ -280,10 +308,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
       await http.put(
         Uri.parse('$_apiBaseUrl/staff/item/${item.itemId}'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'item_name': name,
-          'item_image': imagePath,
-        }),
+        body: json.encode({'item_name': name, 'item_image': imagePath}),
       );
 
       await _updateItemStatus(itemId: item.itemId, status: status);
@@ -332,8 +357,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
       barrierDismissible: true,
       builder: (_) {
         return Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             child: Column(
@@ -348,11 +374,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                const Icon(
-                  Icons.info_outline,
-                  size: 48,
-                  color: Colors.black54,
-                ),
+                const Icon(Icons.info_outline, size: 48, color: Colors.black54),
                 const SizedBox(height: 22),
                 SizedBox(
                   width: 140,
@@ -368,7 +390,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                     child: const Text(
                       'Confirm',
                       style: TextStyle(
-                          fontWeight: FontWeight.bold, color: Colors.white),
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),
@@ -391,15 +415,20 @@ class _EquipmentPageState extends State<EquipmentPage> {
       barrierDismissible: true,
       builder: (_) {
         return Dialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 40,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: StatefulBuilder(
             builder: (context, setStateDialog) {
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -418,7 +447,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.grey.shade400, width: 1),
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
                           color: Colors.grey.shade100,
                         ),
                         child: imagePath.isEmpty
@@ -456,8 +487,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         child: Text(
                           'Sport Name',
                           style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontWeight: FontWeight.w500),
+                            color: Colors.grey.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -481,14 +513,16 @@ class _EquipmentPageState extends State<EquipmentPage> {
                           ),
                           onPressed: () async {
                             final ok = await _showConfirmDialog(
-                                'Are you confirm to add new sport?');
+                              'Are you confirm to add new sport?',
+                            );
                             if (!ok) return;
 
                             if (nameCtrl.text.trim().isEmpty ||
                                 imagePath.isEmpty) {
                               _showSnackBar(
-                                  'Please fill name and image path',
-                                  isError: true);
+                                'Please fill name and image path',
+                                isError: true,
+                              );
                               return;
                             }
                             Navigator.pop(context);
@@ -500,8 +534,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                           child: const Text(
                             'Add',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -526,15 +561,20 @@ class _EquipmentPageState extends State<EquipmentPage> {
       barrierDismissible: true,
       builder: (_) {
         return Dialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 40,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: StatefulBuilder(
             builder: (context, setStateDialog) {
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -553,7 +593,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.grey.shade400, width: 1),
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
                           color: Colors.grey.shade100,
                         ),
                         child: imagePath.isEmpty
@@ -597,8 +639,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         child: Text(
                           'Sport name',
                           style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontWeight: FontWeight.w500),
+                            color: Colors.grey.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -622,14 +665,16 @@ class _EquipmentPageState extends State<EquipmentPage> {
                           ),
                           onPressed: () async {
                             final ok = await _showConfirmDialog(
-                                'Are you confirm to edit?');
+                              'Are you confirm to edit?',
+                            );
                             if (!ok) return;
 
                             if (nameCtrl.text.trim().isEmpty ||
                                 imagePath.isEmpty) {
                               _showSnackBar(
-                                  'Please fill name and image path',
-                                  isError: true);
+                                'Please fill name and image path',
+                                isError: true,
+                              );
                               return;
                             }
 
@@ -641,15 +686,15 @@ class _EquipmentPageState extends State<EquipmentPage> {
                               imagePath: imagePath,
                             );
 
-                            // ❌ ไม่เรียก _updateCategoryStatus แล้ว (ตามข้อ 1)
                             await _fetchCategories();
                             _showSnackBar('Edit sport success ✅');
                           },
                           child: const Text(
                             'Edit',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -675,15 +720,20 @@ class _EquipmentPageState extends State<EquipmentPage> {
       barrierDismissible: true,
       builder: (_) {
         return Dialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 40,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: StatefulBuilder(
             builder: (context, setStateDialog) {
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -702,7 +752,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.grey.shade400, width: 1),
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
                           color: Colors.grey.shade100,
                         ),
                         child: imagePath.isEmpty
@@ -726,8 +778,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                       const SizedBox(height: 12),
                       TextField(
                         decoration: const InputDecoration(
-                          labelText:
-                              'Image path (ex. images/badminton.png)',
+                          labelText: 'Image path (ex. images/badminton.png)',
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -741,8 +792,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         child: Text(
                           'Item name',
                           style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontWeight: FontWeight.w500),
+                            color: Colors.grey.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -759,8 +811,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         child: Text(
                           'Status',
                           style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontWeight: FontWeight.w500),
+                            color: Colors.grey.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       RadioListTile<String>(
@@ -798,12 +851,14 @@ class _EquipmentPageState extends State<EquipmentPage> {
                             if (nameCtrl.text.trim().isEmpty ||
                                 imagePath.isEmpty) {
                               _showSnackBar(
-                                  'Please fill item name and image path',
-                                  isError: true);
+                                'Please fill item name and image path',
+                                isError: true,
+                              );
                               return;
                             }
                             final ok = await _showConfirmDialog(
-                                'Are you confirm to add new item?');
+                              'Are you confirm to add new item?',
+                            );
                             if (!ok) return;
 
                             Navigator.pop(context);
@@ -817,8 +872,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                           child: const Text(
                             'Add Item',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -837,31 +893,38 @@ class _EquipmentPageState extends State<EquipmentPage> {
   Future<void> _showEditItemDialog(StaffItem item) async {
     // ❗ ตามข้อ 2: บล็อกถ้า Borrowed หรือ Pending
     if (item.status == 'Borrowed' || item.status == 'Pending') {
-      _showSnackBar("Can't edit this item at borrowed or pending", isError: true);
+      _showSnackBar(
+        "Can't edit this item at borrowed or pending",
+        isError: true,
+      );
       return;
     }
 
     final nameCtrl = TextEditingController(text: item.name);
     String imagePath = item.image;
-    String status =
-        (item.status == 'Disable' || item.status == 'Available')
-            ? item.status
-            : 'Available';
+    String status = (item.status == 'Disable' || item.status == 'Available')
+        ? item.status
+        : 'Available';
 
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (_) {
         return Dialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 40,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           child: StatefulBuilder(
             builder: (context, setStateDialog) {
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -880,7 +943,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: Colors.grey.shade400, width: 1),
+                            color: Colors.grey.shade400,
+                            width: 1,
+                          ),
                           color: Colors.grey.shade100,
                         ),
                         child: imagePath.isEmpty
@@ -904,8 +969,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                       const SizedBox(height: 12),
                       TextField(
                         decoration: const InputDecoration(
-                          labelText:
-                              'Image path (ex. images/badminton.png)',
+                          labelText: 'Image path (ex. images/badminton.png)',
                           border: OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -920,8 +984,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         child: Text(
                           'Item name',
                           style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontWeight: FontWeight.w500),
+                            color: Colors.grey.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -938,8 +1003,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                         child: Text(
                           'Status',
                           style: TextStyle(
-                              color: Colors.grey.shade800,
-                              fontWeight: FontWeight.w500),
+                            color: Colors.grey.shade800,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                       RadioListTile<String>(
@@ -977,12 +1043,14 @@ class _EquipmentPageState extends State<EquipmentPage> {
                             if (nameCtrl.text.trim().isEmpty ||
                                 imagePath.isEmpty) {
                               _showSnackBar(
-                                  'Please fill item name and image path',
-                                  isError: true);
+                                'Please fill item name and image path',
+                                isError: true,
+                              );
                               return;
                             }
                             final ok = await _showConfirmDialog(
-                                'Are you confirm to edit item?');
+                              'Are you confirm to edit item?',
+                            );
                             if (!ok) return;
 
                             Navigator.pop(context);
@@ -996,8 +1064,9 @@ class _EquipmentPageState extends State<EquipmentPage> {
                           child: const Text(
                             'Save Edit',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -1085,14 +1154,18 @@ class _EquipmentPageState extends State<EquipmentPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
               ),
               onPressed: _showAddCategoryDialog,
               child: const Text(
                 'Add Sport',
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -1103,11 +1176,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
             const Center(child: Text('No sports found.'))
           else
             Column(
-              children: _categories
-                  .map(
-                    (c) => _buildCategoryCard(c),
-                  )
-                  .toList(),
+              children: _categories.map((c) => _buildCategoryCard(c)).toList(),
             ),
         ],
       ),
@@ -1115,50 +1184,49 @@ class _EquipmentPageState extends State<EquipmentPage> {
   }
 
   Widget _buildLegend() => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.3),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.3),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
         ),
-        child: Column(
+      ],
+    ),
+    child: Column(
+      children: [
+        const Text(
+          "Sports Item status.",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            const Text(
-              "Sports Item status.",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _dot("Available", Colors.green),
-                _dot("Disable", Colors.red),
-                _dot("Pending", Colors.yellow.shade700),
-                _dot("Borrowed", Colors.blue),
-              ],
-            ),
+            _dot("Available", Colors.green),
+            _dot("Disable", Colors.red),
+            _dot("Pending", Colors.yellow.shade700),
+            _dot("Borrowed", Colors.blue),
           ],
         ),
-      );
+      ],
+    ),
+  );
 
   Widget _dot(String text, Color color) => Row(
-        children: [
-          Container(
-            width: 14,
-            height: 14,
-            decoration:
-                BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
-          Text(text, style: const TextStyle(fontSize: 13)),
-        ],
-      );
+    children: [
+      Container(
+        width: 14,
+        height: 14,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text(text, style: const TextStyle(fontSize: 13)),
+    ],
+  );
 
   Color _statusColor(String status) {
     switch (status) {
@@ -1265,8 +1333,10 @@ class _EquipmentPageState extends State<EquipmentPage> {
                       color: _statusColor(cat.status),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     child: Text(
                       cat.status,
                       style: const TextStyle(
@@ -1303,7 +1373,10 @@ class _EquipmentPageState extends State<EquipmentPage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 8,
+                ),
               ),
               onPressed: () => _showAddItemDialog(cat),
               child: const Text(
@@ -1371,13 +1444,17 @@ class _EquipmentPageState extends State<EquipmentPage> {
                                     child: ElevatedButton(
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.blue,
-                                        padding:
-                                            const EdgeInsets.symmetric(vertical: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 6,
+                                        ),
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(20),
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
                                         ),
                                       ),
-                                      onPressed: () => _showEditItemDialog(item),
+                                      onPressed: () =>
+                                          _showEditItemDialog(item),
                                       child: const Text(
                                         'Edit',
                                         style: TextStyle(
