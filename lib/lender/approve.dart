@@ -14,55 +14,47 @@ class Approve extends StatefulWidget {
 class _ApproveState extends State<Approve> {
   List<Map<String, dynamic>> requests = [];
   bool isLoading = true;
-
-  // 🔹 IP ของเครื่องคุณ (แก้ตามจริง)
-  final String baseUrl = kSportBorrowApiBaseUrl;
-
- int? lenderId ; // <-- รหัส Lender จริงจากตาราง user
+  int? lenderId;
 
   @override
   void initState() {
     super.initState();
-    fetchRequests();
     _loadLenderAndFetch();
   }
 
-  /// โหลด lenderId จาก SharedPreferences
   Future<void> _loadLenderAndFetch() async {
     final prefs = await SharedPreferences.getInstance();
     lenderId = prefs.getInt("u_id");
-
-    print("✅ Loaded lenderId = $lenderId");
-
+    debugPrint("✅ Loaded lenderId = $lenderId");
     if (lenderId == null) {
-      print("❌ ERROR: lenderId not found");
+      debugPrint("❌ ERROR: lenderId not found");
       setState(() => isLoading = false);
       return;
     }
-
-    fetchRequests();
+    await fetchRequests();
   }
-  
-  /// ดึงรายการ Pending
+
   Future<void> fetchRequests() async {
     try {
-      final url = "$baseUrl/get_pending_requests.php";
-      final response = await http.get(Uri.parse(url));
+      final url = Uri.parse("$kSportApiBaseUrl/lender/pending-requests");
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        setState(() {
-          requests = List<Map<String, dynamic>>.from(data);
-          isLoading = false;
-        });
+        final body = jsonDecode(response.body);
+        if (body['success'] == true) {
+          final List data = body['data'];
+          setState(() {
+            requests = List<Map<String, dynamic>>.from(data);
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      print("❌ fetchRequests error: $e");
+      debugPrint("❌ fetchRequests error: $e");
       setState(() => isLoading = false);
     }
   }
 
-  /// อัปเดตสถานะ Approve / Reject
   Future<void> updateRequest({
     required int requestId,
     required String status,
@@ -74,12 +66,12 @@ class _ApproveState extends State<Approve> {
       final bodyData = jsonEncode({
         "request_id": requestId,
         "status": status,
-        "lender_id": lenderId,  // ⭐ ใช้ค่า Lender จริง
+        "lender_id": lenderId,
         "reason": reason ?? "",
       });
 
       final response = await http.post(
-        Uri.parse("$baseUrl/update_request_status.php"),
+        Uri.parse("$kSportApiBaseUrl/lender/update_status"),
         headers: {"Content-Type": "application/json"},
         body: bodyData,
       );
@@ -91,7 +83,6 @@ class _ApproveState extends State<Approve> {
           requests.removeWhere(
               (r) => r["request_id"].toString() == requestId.toString());
         });
-
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(status == "Approved"
               ? "✅ Approved successfully!"
@@ -99,9 +90,18 @@ class _ApproveState extends State<Approve> {
           backgroundColor:
               status == "Approved" ? Colors.green : Colors.redAccent,
         ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(result['message'] ?? 'Action failed'),
+          backgroundColor: Colors.redAccent,
+        ));
       }
     } catch (e) {
-      print("❌ updateRequest error: $e");
+      debugPrint("❌ updateRequest error: $e");
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: $e'),
+        backgroundColor: Colors.redAccent,
+      ));
     }
   }
 
@@ -189,8 +189,7 @@ class _ApproveState extends State<Approve> {
         itemCount: requests.length,
         itemBuilder: (context, index) {
           final req = requests[index];
-          final imageUrl =
-              "assets/images/${req["item_image"]?.split('/')?.last ?? "no_image.png"}";
+          final imageUrl = "$kImageBaseUrl${req["item_image"] ?? 'images/default.png'}";
 
           return Card(
             shape: RoundedRectangleBorder(
@@ -205,11 +204,17 @@ class _ApproveState extends State<Approve> {
                     children: [
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
+                        child: Image.network(
                           imageUrl,
                           height: 70,
                           width: 70,
                           fit: BoxFit.cover,
+                          errorBuilder: (c, e, s) => Container(
+                            height: 70,
+                            width: 70,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.image_not_supported),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 16),

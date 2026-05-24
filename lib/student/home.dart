@@ -7,10 +7,6 @@ import 'history.dart';
 import 'request.dart';
 import 'package:project_mobile_app/config/ip.dart';
 
-// [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-String _apiBaseUrl = kSportApiBaseUrl;
-String _imageBaseUrl = kImageBaseUrl;
-
 // =======================================
 // Data Models (เหมือนเดิม)
 // =======================================
@@ -119,7 +115,7 @@ class _HomePageState extends State<HomePage> {
     if (_studentId == 0) return; // ป้องกันการเรียก API ถ้า studentId ไม่มี
     try {
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/categories?studentId=$_studentId'),
+        Uri.parse('$kSportApiBaseUrl/categories?studentId=$_studentId'),
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body)['data'] as List;
@@ -147,7 +143,7 @@ class _HomePageState extends State<HomePage> {
     try {
       final response = await http.get(
         Uri.parse(
-          '$_apiBaseUrl/items/${category.categoryId}?studentId=$_studentId',
+          '$kSportApiBaseUrl/items/${category.categoryId}?studentId=$_studentId',
         ),
       );
       if (response.statusCode == 200) {
@@ -165,11 +161,6 @@ class _HomePageState extends State<HomePage> {
     setState(() => _isLoading = false);
   }
 
-  // ... (โค้ดส่วนที่เหลือทั้งหมดเหมือนเดิม) ...
-  // ... ( _createBorrowRequest, _calculateReturnDate, _showErrorSnackBar, _onBackToCategories, _onBottomNavTapped, ... )
-  // ... ( _showLogoutConfirmDialog, _showBorrowDialog, build, _buildHeader, _buildCategoryList, _buildItemList, _buildLegend, _dot, _getCategoryColor )
-
-  // (ฟังก์ชันที่เหลือคัดลอกมาจากโค้ดเดิมที่คุณมี)
 
   Future<void> _createBorrowRequest(String itemId, String returnDateStr) async {
     if (_studentId == 0) {
@@ -182,7 +173,7 @@ class _HomePageState extends State<HomePage> {
 
     try {
       final response = await http.post(
-        Uri.parse('$_apiBaseUrl/borrow/request'),
+        Uri.parse('$kSportApiBaseUrl/borrow/request'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'student_id': _studentId,
@@ -572,7 +563,7 @@ class _HomePageState extends State<HomePage> {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(10),
                               child: Image.network(
-                                _imageBaseUrl + category.image,
+                                kImageBaseUrl + category.image,
                                 width: 80,
                                 height: 80,
                                 fit: BoxFit.cover,
@@ -701,7 +692,7 @@ class _HomePageState extends State<HomePage> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Image.network(
-                        _imageBaseUrl + item.image,
+                        kImageBaseUrl + item.image,
                         width: 60,
                         height: 60,
                         fit: BoxFit.cover,

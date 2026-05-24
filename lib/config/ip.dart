@@ -24,5 +24,3 @@ String get kDashApiBaseUrl => kSportApiBaseUrl;
 /// Base URL public สำหรับรูปภาพ
 String get kImageBaseUrl => "$kBaseHost/";
 
-/// Base URL ของ sport_borrow_api ใหม่
-String get kSportBorrowApiBaseUrl => "$kBaseHost1/sport_borrow_api";

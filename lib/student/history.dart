@@ -7,9 +7,6 @@ import 'home.dart';
 import 'request.dart';
 import 'package:project_mobile_app/config/ip.dart';
 
-String _apiBaseUrl = kSportApiBaseUrl;
-String _imageBaseUrl = kImageBaseUrl;
-
 // -------------------- MODEL --------------------
 class HistoryItem {
   final int requestId;
@@ -64,7 +61,6 @@ class History extends StatefulWidget {
 }
 
 class _HistoryState extends State<History> {
-  final int _selectedIndex = 2;
   bool _isLoading = true;
   List<HistoryItem> _historyItems = [];
 
@@ -86,7 +82,7 @@ class _HistoryState extends State<History> {
 
     try {
       final response = await http.get(
-        Uri.parse('$_apiBaseUrl/history/$studentId'),
+        Uri.parse('$kSportApiBaseUrl/history/$studentId'),
       );
       if (response.statusCode == 200) {
         final data = json.decode(response.body)['data'] as List;
@@ -217,7 +213,7 @@ class _HistoryState extends State<History> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Image.network(
-                  _imageBaseUrl + item.itemImage,
+                  kImageBaseUrl + item.itemImage,
                   width: 70,
                   height: 70,
                   fit: BoxFit.cover,

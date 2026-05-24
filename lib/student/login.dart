@@ -65,13 +65,11 @@ class _LoginPageState extends State<LoginPage> {
         int userId = data['user']['u_id'];
         int userRole = data['user']['u_role'];
         String username = data['user']['u_username'];
-        String token = data['token'] ?? '';
 
         // ✅ เซฟลง prefs (ทั้งชื่อ key แบบเก่า + แบบใหม่)
         await prefs.setInt('u_id', userId);
         await prefs.setInt('u_role', userRole);
         await prefs.setString('u_username', username);
-        await prefs.setString('token', token);
 
         await prefs.setInt('userId', userId); // ใช้ใน return.dart
         await prefs.setInt('role', userRole);

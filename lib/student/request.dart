@@ -7,10 +7,6 @@ import 'home.dart';
 import 'history.dart';
 import 'package:project_mobile_app/config/ip.dart';
 
-// [TODO] แก้ไข IP Address ให้ตรงกับ Server ของคุณ
-String _apiBaseUrl = kSportApiBaseUrl;
-String _imageBaseUrl = kImageBaseUrl;
-
 // =======================================
 // [NEW] Data Model (สำหรับ request_result_view)
 // =======================================
@@ -81,7 +77,7 @@ class _RequestPageState extends State<RequestPage> {
   }
 
   try {
-    final url = '$_apiBaseUrl/requests/$studentId';
+    final url = '$kSportApiBaseUrl/requests/$studentId';
     debugPrint("📡 GET $url");
 
     final response = await http.get(Uri.parse(url));
@@ -148,7 +144,6 @@ class _RequestPageState extends State<RequestPage> {
   }
 
   Future<void> _showLogoutConfirmDialog() async {
-    // ... (โค้ด Dialog ยืนยัน Logout ของคุณ) ...
     return showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -337,7 +332,7 @@ class _RequestPageState extends State<RequestPage> {
                   borderRadius: BorderRadius.circular(12.0),
                   child: Image.network(
                     // [FIX] ต่อ Base URL
-                    _imageBaseUrl + item.itemImage,
+                    kImageBaseUrl + item.itemImage,
                     width: 70,
                     height: 70,
                     fit: BoxFit.cover,

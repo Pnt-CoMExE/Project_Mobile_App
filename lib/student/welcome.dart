@@ -1,10 +1,60 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class WelcomePage extends StatelessWidget {
+class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
 
   @override
+  State<WelcomePage> createState() => _WelcomePageState();
+}
+
+class _WelcomePageState extends State<WelcomePage> {
+  bool _checkingSession = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoggedInSession();
+  }
+
+  Future<void> _checkLoggedInSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('u_id');
+    final userRole = prefs.getInt('u_role');
+
+    if (!mounted) return;
+
+    if (userId != null && userRole != null && userId > 0) {
+      // ✅ User has a saved session — auto-route to their dashboard
+      String route;
+      switch (userRole) {
+        case 2:
+          route = '/staff/dashboard';
+          break;
+        case 3:
+          route = '/lender/dashboard';
+          break;
+        default:
+          route = '/student/home';
+      }
+      Navigator.pushReplacementNamed(context, route);
+    } else {
+      // No session — show welcome screen
+      setState(() => _checkingSession = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Show a loading indicator while checking session
+    if (_checkingSession) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -17,9 +67,9 @@ class WelcomePage extends StatelessWidget {
         ),
         child: Column(
           children: [
-            const SizedBox(height: 80), // เว้นขอบบน
+            const SizedBox(height: 80),
 
-            // ---- ข้อความตรงกลาง ----
+            // ---- Center text ----
             Expanded(
               flex: 6,
               child: Center(
@@ -52,7 +102,7 @@ class WelcomePage extends StatelessWidget {
               ),
             ),
 
-            // ---- ปุ่ม Sign in / Sign up เต็มขอบล่าง ----
+            // ---- Sign in / Sign up buttons ----
             Row(
               children: [
                 Expanded(

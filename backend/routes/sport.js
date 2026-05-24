@@ -127,7 +127,7 @@ router.post("/borrow/request", async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "You have already borrowed the item!! Please return and you can borrow again.",
+          "You already have an active borrowed item. Please return it first before borrowing another.",
       });
     }
 
@@ -242,7 +242,39 @@ router.get("/history/:studentId", async (req, res) => {
 });
 
 
-// 6. POST: Lender อัปเดตสถานะคำขอ (Approve / Reject)
+// 6. GET: ดึงคำขอที่รออนุมัติ (Pending) ทั้งหมดสำหรับ Lender
+router.get("/lender/pending-requests", async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        br.request_id,
+        u.u_id AS student_id,
+        u.u_username AS username,
+        si.item_id,
+        si.item_name,
+        sc.category_name,
+        si.item_image,
+        br.borrow_date,
+        br.return_date,
+        br.request_status
+      FROM borrow_request br
+      JOIN user u ON br.student_id = u.u_id
+      JOIN sport_item si ON br.item_id = si.item_id
+      JOIN sport_category sc ON si.category_id = sc.category_id
+      WHERE br.request_status = 'Pending'
+      ORDER BY br.request_id DESC
+      `
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error("❌ /lender/pending-requests error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// 7. POST: Lender อัปเดตสถานะคำขอ (Approve / Reject)
 router.post("/lender/update_status", async (req, res) => {
   const { request_id, status, lender_id, reason } = req.body;
 
@@ -288,7 +320,7 @@ router.post("/lender/update_status", async (req, res) => {
 });
 
 
-// 7. GET: ดึงประวัติของ Lender (Approved / Rejected)
+// 8. GET: ดึงประวัติของ Lender (Approved / Rejected)
 router.get("/lender/history/:lenderId", async (req, res) => {
   try {
     const { lenderId } = req.params;
@@ -324,7 +356,7 @@ router.get("/lender/history/:lenderId", async (req, res) => {
 });
 
 
-// 8. Dashboard API (staff / admin ดูสรุป)
+// 9. Dashboard API (staff / admin ดูสรุป)
 router.get("/", async (req, res) => {
   try {
     // 1. นับจำนวนสถานะจาก sport_item
@@ -359,7 +391,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// 9. GET: รายการอุปกรณ์ที่ "กำลังถูกยืม" สำหรับหน้า Return (Approved + ยังไม่คืน)
+// 10. GET: รายการอุปกรณ์ที่ "กำลังถูกยืม" สำหรับหน้า Return (Approved + ยังไม่คืน)
 router.get("/return/list", async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -391,7 +423,7 @@ router.get("/return/list", async (req, res) => {
 });
 
 
-// 10. POST: Staff กดคืนของ → บันทึก actual_return_date + staff_id
+// 11. POST: Staff กดคืนของ → บันทึก actual_return_date + staff_id
 router.post("/return/confirm", async (req, res) => {
   const { request_id, staff_id } = req.body;
 
@@ -452,7 +484,7 @@ router.post("/return/confirm", async (req, res) => {
   }
 });
 
-// 11. GET: ประวัติการคืนของเฉพาะ staff คนหนึ่ง (ใช้ใน StaffHistory)
+// 12. GET: ประวัติการคืนของเฉพาะ staff คนหนึ่ง (ใช้ใน StaffHistory)
 router.get("/history/staff/:staffId", async (req, res) => {
   try {
     const { staffId } = req.params;
