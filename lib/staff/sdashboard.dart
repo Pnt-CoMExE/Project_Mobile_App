@@ -54,7 +54,7 @@ class _SdashboardState extends State<Sdashboard> {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear();
                 if (mounted) {
-                  Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+                  Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
                 }
               },
             ),

@@ -315,7 +315,7 @@ class _HomePageState extends State<HomePage> {
                     await prefs.clear();
                     Navigator.pushNamedAndRemoveUntil(
                       context,
-                      '/login',
+                      '/',
                       (route) => false,
                     );
                   },

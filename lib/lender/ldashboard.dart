@@ -47,7 +47,7 @@ class _LdashboardState extends State<Ldashboard> {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.clear();
                 if (mounted) {
-                  Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+                  Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
                 }
               },
             ),
